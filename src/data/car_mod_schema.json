@@ -18,23 +18,27 @@
               "key": "name",
               "label": "Mod name",
               "default": "My Car Mod",
-              "required": true
+              "required": true,
+              "help": "The name people will see for this mod."
             },
             {
               "key": "version",
               "label": "Version",
-              "default": "1.0"
+              "default": "1.0",
+              "help": "Your own version number, e.g. 1.0. Raise it when you release an update."
             },
             {
               "key": "author",
               "label": "Author",
               "default": "Your name",
-              "required": true
+              "required": true,
+              "help": "Your name or handle."
             },
             {
               "key": "description",
               "label": "Description",
-              "default": "A GT3 Revisited car mod."
+              "default": "A GT3 Revisited car mod.",
+              "help": "A short blurb about the mod."
             },
             {
               "key": "priority",
@@ -138,7 +142,8 @@
               "label": "Name",
               "default": "my_car",
               "required": true,
-              "comment": "shown after the maker's name"
+              "comment": "shown after the maker's name",
+              "help": "The car's display name, shown after the maker's name (Maker = Daihatsu, Name = Dumbo)."
             },
             {
               "key": "maker",
@@ -154,7 +159,8 @@
               "type": "int",
               "default": "1989",
               "min": 1880,
-              "max": 2100
+              "max": 2100,
+              "help": "Model year, e.g. 1989."
             },
             {
               "key": "price",
@@ -162,7 +168,8 @@
               "type": "int",
               "default": "3000",
               "unit": "credits",
-              "min": 0
+              "min": 0,
+              "help": "Dealer price."
             },
             {
               "key": "category",
@@ -183,7 +190,8 @@
               "help": "A disc car (see data/cars.json): lends suspension geometry, steering, tyre compounds, brakes, aids and upgrade parts. Use Browse to search the disc's cars.",
               "suggest_from": "cars.label"
             }
-          ]
+          ],
+          "description": "Who the car is. Anything you leave blank in the other sections is borrowed from the donor."
         },
         {
           "name": "body",
@@ -197,7 +205,8 @@
               "default": "1300",
               "unit": "kg",
               "min": 100,
-              "comment": "curb weight (the game adds 120 kg of driver)"
+              "comment": "curb weight (the game adds 120 kg of driver)",
+              "help": "Curb weight in kg. The game adds 120 kg for the driver."
             },
             {
               "key": "front_weight_pct",
@@ -206,7 +215,8 @@
               "default": "52",
               "unit": "%",
               "min": 0,
-              "max": 100
+              "max": 100,
+              "help": "Percentage of the weight on the front wheels (50 = evenly balanced)."
             },
             {
               "key": "length_mm",
@@ -214,7 +224,8 @@
               "type": "int",
               "default": "4000",
               "unit": "mm",
-              "min": 500
+              "min": 500,
+              "help": "Overall length in mm. The Model tools tab can measure this from your .glb."
             },
             {
               "key": "width_mm",
@@ -223,7 +234,8 @@
               "default": "1700",
               "unit": "mm",
               "min": 500,
-              "comment": "without the mirrors"
+              "comment": "without the mirrors",
+              "help": "Overall width in mm, without the mirrors. The Model tools tab can measure this."
             },
             {
               "key": "height_mm",
@@ -231,7 +243,8 @@
               "type": "int",
               "default": "1400",
               "unit": "mm",
-              "min": 500
+              "min": 500,
+              "help": "Overall height in mm. The Model tools tab can measure this."
             },
             {
               "key": "wheelbase_mm",
@@ -240,7 +253,8 @@
               "default": "2500",
               "unit": "mm",
               "min": 500,
-              "comment": "between the wheel centres of the model"
+              "comment": "between the wheel centres of the model",
+              "help": "Distance between the front and rear wheel centres, in mm."
             },
             {
               "key": "front_track_mm",
@@ -249,7 +263,8 @@
               "default": "1450",
               "unit": "mm",
               "min": 500,
-              "comment": "centre to centre of the modelled tyres"
+              "comment": "centre to centre of the modelled tyres",
+              "help": "Distance between the left and right front wheel centres, in mm."
             },
             {
               "key": "rear_track_mm",
@@ -257,7 +272,8 @@
               "type": "int",
               "default": "1450",
               "unit": "mm",
-              "min": 500
+              "min": 500,
+              "help": "Distance between the left and right rear wheel centres, in mm."
             },
             {
               "key": "cd",
@@ -265,7 +281,8 @@
               "type": "float",
               "default": "0.32",
               "min": 0.05,
-              "max": 2
+              "max": 2,
+              "help": "Drag coefficient: lower means less air resistance. Most road cars are about 0.28 to 0.40."
             },
             {
               "key": "frontal_area_m2",
@@ -275,7 +292,8 @@
               "unit": "m²",
               "min": 0.5,
               "max": 10,
-              "comment": "about 0.82 x width x height"
+              "comment": "about 0.82 x width x height",
+              "help": "Front-on area in m². Roughly 0.82 × width × height (in metres)."
             },
             {
               "key": "ride_height_mm",
@@ -285,7 +303,8 @@
               "unit": "mm",
               "help": "Leave blank to use the donor's."
             }
-          ]
+          ],
+          "description": "Weight and size. The Model tools tab can measure length, width and height from your .glb for you."
         },
         {
           "name": "powertrain",
@@ -363,7 +382,8 @@
               "default": "9000",
               "unit": "RPM",
               "min": 1000,
-              "comment": "rev limiter"
+              "comment": "rev limiter",
+              "help": "Rev limiter: the engine won't rev past this. The torque curve must stay within it."
             },
             {
               "key": "idle_rpm",
@@ -371,7 +391,8 @@
               "type": "int",
               "default": "850",
               "unit": "RPM",
-              "min": 200
+              "min": 200,
+              "help": "Engine speed when standing still."
             },
             {
               "key": "output_pct",
@@ -380,7 +401,8 @@
               "default": "100",
               "unit": "%",
               "min": 1,
-              "comment": "GT3's hidden output factor (disc cars: mostly 100-120),\nfitted with `gt3tool modcar` to the [reference] 0-60 and quarter mile"
+              "comment": "GT3's hidden output factor (disc cars: mostly 100-120),\nfitted with `gt3tool modcar` to the [reference] 0-60 and quarter mile",
+              "help": "GT3's hidden output factor. Disc cars are mostly 100 to 120; leave it at 100 if unsure."
             },
             {
               "key": "layout",
@@ -407,14 +429,16 @@
               "suggestions": [
                 "NA",
                 "TURBO"
-              ]
+              ],
+              "help": "NA = naturally aspirated, TURBO = turbocharged."
             },
             {
               "key": "displacement",
               "label": "Displacement",
               "default": "1600cc",
               "pattern": "\\d+(\\.\\d+)?cc",
-              "pattern_hint": "Write it like 1600cc."
+              "pattern_hint": "Write it like 1600cc.",
+              "help": "Engine size, e.g. 1600cc."
             },
             {
               "key": "sound_id",
@@ -422,7 +446,8 @@
               "default": "",
               "help": "Leave blank to use the donor's sound bank."
             }
-          ]
+          ],
+          "description": "The engine. The torque curve itself is edited on the torque curve tab."
         },
         {
           "name": "drivetrain",
@@ -439,7 +464,8 @@
                 "RR",
                 "4WD"
               ],
-              "required": true
+              "required": true,
+              "help": "Which wheels the engine drives: FF front, FR front-engined rear-drive, MR mid-engined rear-drive, RR rear-engined rear-drive, 4WD all four."
             },
             {
               "key": "gears",
@@ -463,7 +489,8 @@
               "type": "float",
               "default": "4.10",
               "min": 0.5,
-              "max": 20
+              "max": 20,
+              "help": "Final drive ratio, e.g. 4.10."
             },
             {
               "key": "reverse",
@@ -471,9 +498,11 @@
               "type": "float",
               "default": "3.40",
               "min": 0.5,
-              "max": 20
+              "max": 20,
+              "help": "Reverse gear ratio."
             }
-          ]
+          ],
+          "description": "The gearbox and which wheels are driven."
         },
         {
           "name": "tires",
@@ -492,7 +521,8 @@
               "label": "Rear tyre",
               "default": "195/65R15",
               "pattern": "\\d{3}/\\d{2}R\\d{2}",
-              "pattern_hint": "Use a size like 205/55R16."
+              "pattern_hint": "Use a size like 205/55R16.",
+              "help": "Same format as the front tyre, e.g. 205/55R16."
             },
             {
               "key": "grip_pct",
@@ -503,7 +533,8 @@
               "min": 1,
               "help": "Fit it to the [reference] skidpad with `gt3tool modcar`."
             }
-          ]
+          ],
+          "description": "Tyre sizes and overall grip."
         },
         {
           "name": "model",
@@ -532,7 +563,8 @@
               "unit": "mm",
               "comment": "fine-tune the body's height over the wheels if the arches look off"
             }
-          ]
+          ],
+          "description": "Your 3D body and the wheels it uses. Use the Model tools tab to add the .glb."
         },
         {
           "name": "paints",
@@ -560,7 +592,8 @@
               "key": "for_sale",
               "label": "For sale",
               "type": "bool",
-              "default": "yes"
+              "default": "yes",
+              "help": "Whether the car can be bought at the dealer."
             },
             {
               "key": "description",
@@ -588,7 +621,8 @@
               "default": "",
               "help": "Optional. Without it the dealer writes the name in the menu font."
             }
-          ]
+          ],
+          "description": "How the car appears at the dealer: its text, picture and thumbnail."
         },
         {
           "name": "arcade",
@@ -622,7 +656,8 @@
               "type": "float",
               "default": "9.0",
               "unit": "s",
-              "min": 0.1
+              "min": 0.1,
+              "help": "0-60 mph time in seconds."
             },
             {
               "key": "quarter_mile_s",
@@ -630,7 +665,8 @@
               "type": "float",
               "default": "16.5",
               "unit": "s",
-              "min": 0.1
+              "min": 0.1,
+              "help": "Quarter-mile time in seconds."
             },
             {
               "key": "top_speed_kmh",
@@ -638,7 +674,8 @@
               "type": "int",
               "default": "190",
               "unit": "km/h",
-              "min": 1
+              "min": 1,
+              "help": "Top speed in km/h."
             },
             {
               "key": "skidpad_g",
@@ -646,9 +683,11 @@
               "type": "float",
               "default": "0.78",
               "unit": "g",
-              "min": 0.1
+              "min": 0.1,
+              "help": "Cornering grip on a skidpad, in g."
             }
-          ]
+          ],
+          "description": "Real-world figures for this car, used when tuning its performance. Optional."
         }
       ]
     }

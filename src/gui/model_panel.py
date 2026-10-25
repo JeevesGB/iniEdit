@@ -1,8 +1,4 @@
-"""Model tools tab: get a body model into the mod, fill in its sizes, and make the dealer pictures."""
-
 from __future__ import annotations
-
-import json
 import queue
 import shutil
 import tempfile
@@ -11,12 +7,10 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Callable
-
-from core import modeltools
+from core import modeltools, settings
 from core.modeltools import ModelToolError
 from gui.icons import load_icon
 
-SETTINGS = Path.home() / ".gt3_mod_creator.json"
 GLB = [("3D model (.glb)", "*.glb"), ("All files", "*.*")]
 IMAGES = [("Pictures", "*.png *.jpg *.jpeg *.bmp"), ("All files", "*.*")]
 BODY_LABELS = {"length_mm": "length", "width_mm": "width", "height_mm": "height",
@@ -39,7 +33,6 @@ class ModelPanel(ttk.Frame):
         self._queue: queue.Queue = queue.Queue()
         self._done: Callable[[object], None] | None = None
 
-        # header: icon, what this tab is for, where files go
         head = ttk.Frame(self)
         head.grid(row=0, column=0, sticky="ew", pady=(0, 10))
         head.columnconfigure(1, weight=1)
@@ -49,7 +42,6 @@ class ModelPanel(ttk.Frame):
         ttk.Label(head, text="Model tools", font=("TkDefaultFont", 13, "bold")).grid(row=0, column=1, sticky="w")
         ttk.Label(head, textvariable=self.status_var, foreground=HINT_FG).grid(row=1, column=1, sticky="w")
 
-        # 1. body model
         f = self._group(1, "1  Add your 3D body", "Pick the way that matches the file you have.")
         row = ttk.Frame(f)
         row.grid(row=1, column=0, sticky="ew")
@@ -66,7 +58,6 @@ class ModelPanel(ttk.Frame):
         ttk.Entry(bl, textvariable=self.blender_var).grid(row=0, column=1, sticky="ew", padx=6)
         ttk.Button(bl, text="Find…", command=self.browse_blender).grid(row=0, column=2)
 
-        # 2. sizes
         f = self._group(2, "2  Fill in the sizes", "The body's length, width and height (and wheelbase and tracks "
                         "after a Blender conversion) go into the car tab's body section.")
         ttk.Label(f, textvariable=self.dims_var).grid(row=1, column=0, sticky="w")
@@ -75,7 +66,6 @@ class ModelPanel(ttk.Frame):
         self._button(bar, "Measure the mod's body", self.measure_current).pack(side="left")
         self._button(bar, "Fill in car tab", self.apply_dims).pack(side="left", padx=8)
 
-        # 3. pictures
         f = self._group(3, "3  Dealer pictures", "Take a screenshot of the car in the game's car viewer, then pick it here.")
         bar = ttk.Frame(f)
         bar.grid(row=1, column=0, sticky="ew")
@@ -98,7 +88,6 @@ class ModelPanel(ttk.Frame):
         self.bind("<Map>", lambda _e: self._refresh())
         self.after(100, self._poll)
 
-    # ---- layout helpers ---------------------------------------------
     def _group(self, row: int, title: str, note: str) -> ttk.LabelFrame:
         f = ttk.LabelFrame(self, text=title, padding=10)
         f.grid(row=row, column=0, sticky="ew", pady=(0, 10))
@@ -119,10 +108,9 @@ class ModelPanel(ttk.Frame):
         self.buttons.append(b)
         return b
 
-    # ---- settings / paths ---------------------------------------------
     def _load_blender(self) -> str:
         try:
-            saved = json.loads(SETTINGS.read_text(encoding="utf-8")).get("blender", "")
+            saved = settings.load().get("blender", "")
             if saved and Path(saved).is_file():
                 return saved
         except (OSError, ValueError):
@@ -133,10 +121,7 @@ class ModelPanel(ttk.Frame):
         path = filedialog.askopenfilename(title="Find the Blender program (blender.exe)")
         if path:
             self.blender_var.set(path)
-            try:
-                SETTINGS.write_text(json.dumps({"blender": path}), encoding="utf-8")
-            except OSError:
-                pass
+            settings.update(blender=path)
 
     def _refresh(self):
         label = self.app.car_value("car", "label")
@@ -158,7 +143,6 @@ class ModelPanel(ttk.Frame):
         root = self.app.ensure_mod_folder()
         return root / rel if root else None
 
-    # ---- log / background work ------------------------------------------
     def log(self, text: str):
         self.log_text.configure(state="normal")
         self.log_text.insert("end", text + "\n")
@@ -201,7 +185,6 @@ class ModelPanel(ttk.Frame):
             pass
         self.after(100, self._poll)
 
-    # ---- 1. body --------------------------------------------------------
     def use_finished(self):
         src = filedialog.askopenfilename(title="Choose the finished .glb", filetypes=GLB)
         if not src:
@@ -239,10 +222,7 @@ class ModelPanel(ttk.Frame):
         if dst.exists() and not messagebox.askyesno("Replace body?", f"{dst.name} already exists in the mod.\nReplace it?"):
             return
         src, stage = Path(src), Path(tempfile.gettempdir()) / "gt3_mod_creator_stage1.glb"
-        try:
-            SETTINGS.write_text(json.dumps({"blender": blender}), encoding="utf-8")
-        except OSError:
-            pass
+        settings.update(blender=blender)
 
         def work():
             self._say("Step 1 of 3: cleaning up the model in Blender (this can take a minute)…")
@@ -260,7 +240,6 @@ class ModelPanel(ttk.Frame):
 
         self._async(work, done)
 
-    # ---- 2. sizes -------------------------------------------------------
     def measure_current(self):
         root, model = self.app.mod_root(), self.app.car_value("model", "file")
         path = root / model if root and model else None
@@ -283,7 +262,6 @@ class ModelPanel(ttk.Frame):
         n = self.app.set_car_values({("body", k): str(v) for k, v in self.dims.items()})
         self.log(f"Filled in {n} value(s) in the car tab's body section.")
 
-    # ---- 3. pictures ----------------------------------------------------
     def make_pictures(self):
         shot = filedialog.askopenfilename(title="Choose the car viewer screenshot", filetypes=IMAGES)
         if not shot:

@@ -1,27 +1,32 @@
-"""Main window: schema-driven GT3-revisited mod creator."""
-
 from __future__ import annotations
-
+import os
+import subprocess
 import sys
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
+from core import settings
 from core.discdata import DiscCars
 from core.project import ModProject
 from core.schema import FileSpec, Schema, SchemaError, load_schema
 from gui.curve_panel import CurvePanel
 from gui.disc_browser import DiscBrowser
+from gui.guide import GuideWindow
 from gui.model_panel import ModelPanel
 from gui.icons import SAVE_ICON, TAB_ICONS, load_icon
 from gui.parameter_form import ParameterForm
 from gui.paints_panel import PaintsPanel
 from gui.preview_panel import PreviewPanel
+from gui.start_dialog import NewModDialog, StartDialog
 
 APP_NAME = "GT3 Mod Creator"
 BASE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
 DEFAULT_SCHEMA = BASE_DIR / "data" / "car_mod_schema.json"
 DISC_CARS = BASE_DIR / "data" / "cars.json"
+BANNER_BG, BANNER_FG = "#fff6d6", "#5a4a00"
+TIPS_TEXT = ("Getting started:  1) fill in the Mod and Car tabs (* = required)   "
+             "2) add your 3D model under Model tools   3) press Save, and check the Preview tab.")
 
 
 class ModCreatorApp(tk.Tk):
@@ -37,7 +42,7 @@ class ModCreatorApp(tk.Tk):
         self.disc = DiscCars.load(DISC_CARS)
         self.schema: Schema | None = None
         self.schema_path = schema_path
-        self.parent_dir: Path | None = None   # the "mods" folder the mod folder lives in
+        self.parent_dir: Path | None = None   
         self.dirty = False
         self.notebook: ttk.Notebook | None = None
         self.forms: dict[str, ParameterForm] = {}
@@ -45,11 +50,14 @@ class ModCreatorApp(tk.Tk):
         self.paint_panels: dict[tuple[str, str], PaintsPanel] = {}
         self.include_vars: dict[str, tk.BooleanVar] = {}
         self.maker_hints: dict[str, ttk.Label] = {}
+        self.form_pages: dict[str, ttk.Frame] = {}  
+        self.tab_base: dict[str, str] = {}          
+        self.issues: list[str] = []
         self.extras: dict[str, dict[str, dict[str, str]]] = {}
         self._building = False
 
         self.columnconfigure(0, weight=1)
-        self.rowconfigure(1, weight=1)
+        self.rowconfigure(3, weight=1)
         top = ttk.Frame(self, padding=(10, 8, 10, 0))
         top.grid(row=0, column=0, sticky="ew")
         self.save_icon = load_icon(SAVE_ICON, 20)
@@ -59,13 +67,29 @@ class ModCreatorApp(tk.Tk):
         ttk.Entry(top, textvariable=self.mod_id_var, width=28).pack(side="left", padx=6)
         self.mod_id_error = ttk.Label(top, text="", foreground="#c0392b")
         self.mod_id_error.pack(side="left")
+        self.problems_btn = ttk.Button(top, text="No problems", command=self.show_problems, state="disabled")
+        self.problems_btn.pack(side="right")
+        loc = ttk.Frame(self, padding=(10, 4, 10, 0))
+        loc.grid(row=1, column=0, sticky="ew")
+        self.location_var = tk.StringVar()
+        ttk.Label(loc, textvariable=self.location_var, foreground="#666666").pack(side="left")
+        self.folder_btn = ttk.Button(loc, text="Open folder", command=self.open_folder, state="disabled")
+        self.folder_btn.pack(side="left", padx=10)
+        self.banner = tk.Frame(self, bg=BANNER_BG, padx=10, pady=6)
+        tk.Label(self.banner, text=TIPS_TEXT, bg=BANNER_BG, fg=BANNER_FG, justify="left", anchor="w",
+                 wraplength=820).pack(side="left", fill="x", expand=True)
+        ttk.Button(self.banner, text="Dismiss", command=self.hide_banner).pack(side="right")
+        ttk.Button(self.banner, text="Quick guide", command=self.show_guide).pack(side="right", padx=6)
+        self.banner.grid(row=2, column=0, sticky="ew", padx=8, pady=(6, 0))
+        if settings.load().get("hide_tips"):
+            self.banner.grid_remove()
         self.mod_id_var.trace_add("write", lambda *_: self._changed())
         self.comments_var.trace_add("write", lambda *_: self._refresh_preview())
         ttk.Label(self, textvariable=self.status_var, anchor="w", relief="sunken", padding=(8, 4)).grid(
-            row=2, column=0, sticky="ew")
+            row=4, column=0, sticky="ew")
         self._build_menu()
         self.protocol("WM_DELETE_WINDOW", self.on_exit)
-        for seq, cmd in (("<Control-n>", self.new_mod), ("<Control-o>", self.open_mod),
+        for seq, cmd in (("<F1>", self.show_guide), ("<Control-n>", self.new_mod), ("<Control-o>", self.open_mod),
                          ("<Control-s>", self.save_mod), ("<Control-S>", self.save_mod_as)):
             self.bind(seq, lambda _e, c=cmd: c())
 
@@ -74,16 +98,28 @@ class ModCreatorApp(tk.Tk):
         except SchemaError as exc:
             messagebox.showerror("Schema error", str(exc))
             raise SystemExit(1) from exc
+        self.after(150, self._startup_prompt)     
+
+    def _startup_prompt(self):
+        while True:
+            dialog = StartDialog(self, settings.recent_mods())
+            self.wait_window(dialog)
+            if dialog.result == "new" and self.new_mod():
+                return
+            if dialog.result == "open" and self.open_mod():
+                return
+            if dialog.result == "recent" and self.open_mod(dialog.folder):
+                return
+            if dialog.result is None:            
+                return
 
     def _set_window_icon(self):
-        """Title-bar / taskbar icon (gui/icons/ico.ico); the app runs fine without it."""
         ico = BASE_DIR / "gui" / "icons" / "ico.ico"
         try:
             self.iconbitmap(default=str(ico))
-        except tk.TclError:      # missing file, or a platform that can't use .ico
+        except tk.TclError:     
             pass
 
-    # ---- menu -------------------------------------------------------
     def _build_menu(self):
         bar = tk.Menu(self)
         m = tk.Menu(bar, tearoff=False)
@@ -94,6 +130,8 @@ class ModCreatorApp(tk.Tk):
         m.add_command(label="Save mod", accelerator="Ctrl+S", command=self.save_mod)
         m.add_command(label="Save mod to folder…", accelerator="Ctrl+Shift+S", command=self.save_mod_as)
         m.add_separator()
+        m.add_command(label="Show mod folder in file browser", command=self.open_folder)
+        m.add_separator()
         m.add_command(label="Exit", command=self.on_exit)
         bar.add_cascade(label="File", menu=m)
         o = tk.Menu(bar, tearoff=False)
@@ -102,18 +140,21 @@ class ModCreatorApp(tk.Tk):
         o.add_command(label="Load parameter schema…", command=self.choose_schema)
         o.add_command(label="Reset to built-in schema", command=lambda: self._switch_schema(DEFAULT_SCHEMA))
         bar.add_cascade(label="Options", menu=o)
+        h = tk.Menu(bar, tearoff=False)
+        h.add_command(label="Quick guide", accelerator="F1", command=self.show_guide)
+        h.add_command(label="Show getting-started tips", command=self.show_banner)
+        bar.add_cascade(label="Help", menu=h)
         self.config(menu=bar)
 
-    # ---- construction -----------------------------------------------
     def _build_ui(self, schema: Schema):
         self._building = True
         self.schema = schema
         if self.notebook is not None:
             self.notebook.destroy()
         self.forms.clear(), self.curve_panels.clear(), self.paint_panels.clear(), self.include_vars.clear()
-        self.maker_hints.clear()
+        self.maker_hints.clear(), self.form_pages.clear(), self.tab_base.clear()
         self.notebook = ttk.Notebook(self)
-        self.notebook.grid(row=1, column=0, sticky="nsew", padx=8, pady=8)
+        self.notebook.grid(row=3, column=0, sticky="nsew", padx=8, pady=8)
 
         for spec in schema.files:
             page = ttk.Frame(self.notebook)
@@ -133,6 +174,7 @@ class ModCreatorApp(tk.Tk):
                                  on_browse=self._browse_donor if self.disc else None)
             form.grid(row=1, column=0, sticky="nsew")
             self.forms[spec.id] = form
+            self.form_pages[spec.id] = page
             self._add_tab(page, spec.title, TAB_ICONS.get(spec.id, ""))
 
         for spec in schema.files:
@@ -157,6 +199,7 @@ class ModCreatorApp(tk.Tk):
         self.status_var.set(f"Schema: {schema.name}")
 
     def _add_tab(self, widget, title: str, icon: str = ""):
+        self.tab_base[str(widget)] = title.lower()
         image = load_icon(icon, 18)
         if image is not None:
             self.notebook.add(widget, text=" " + title.lower(), image=image, compound="left")
@@ -177,14 +220,11 @@ class ModCreatorApp(tk.Tk):
                     if (section, key) in form.vars:
                         form.vars[(section, key)].set(value)
 
-    # ---- helpers for the model tools tab ----------------------------
     def mod_root(self) -> Path | None:
-        """The mod's folder once it has been saved (or opened), else None."""
         mod_id = self.mod_id_var.get().strip()
         return self.parent_dir / mod_id if self.parent_dir and mod_id else None
 
     def ensure_mod_folder(self) -> Path | None:
-        """The mod's folder; offers to save the mod first if it has no folder yet."""
         if self.mod_root() is None:
             if not messagebox.askyesno("Save the mod first",
                                        "The files need a mod folder to go in. Save the mod now?"):
@@ -194,7 +234,6 @@ class ModCreatorApp(tk.Tk):
         return self.mod_root()
 
     def car_value(self, section: str, key: str) -> str:
-        """A value from the car file with placeholders filled in ('' if there is no car file)."""
         if self.schema is None or "car" not in self.forms:
             return ""
         return self._collect().resolved_docs()["car"].get(section, key).strip()
@@ -221,7 +260,6 @@ class ModCreatorApp(tk.Tk):
         except SchemaError as exc:
             messagebox.showerror("Schema error", str(exc))
 
-    # ---- project <-> widgets ----------------------------------------
     def _collect(self) -> ModProject:
         project = ModProject(self.schema, self.disc)
         project.mod_id = self.mod_id_var.get().strip()
@@ -286,11 +324,108 @@ class ModCreatorApp(tk.Tk):
         mod_issue = next((i for i in issues if i.startswith("Mod folder name")), "")
         self.mod_id_error.configure(text=mod_issue.replace("Mod folder name: ", ""))
         self.status_var.set("All values valid." if not issues else f"{len(issues)} issue(s). First: {issues[0]}")
+        self.issues = issues
+        self.problems_btn.configure(text=f"Problems ({len(issues)})" if issues else "No problems")
+        self.problems_btn.state(["!disabled"] if issues else ["disabled"])
+        self._update_badges(issues)
+
+    def _tab_for_issue(self, issue: str):
+        if self.schema is None:
+            return None
+        low = issue.lower()
+        for spec in self.schema.files:
+            prefix = f"{spec.title}: ".lower()
+            if not low.startswith(prefix):
+                continue
+            rest = issue[len(prefix):]
+            for (fid, section, key), panel in self.curve_panels.items():
+                if fid == spec.id and f"[{section}] {key}" in rest:
+                    return panel
+            for (fid, section), panel in self.paint_panels.items():
+                if fid == spec.id and rest.startswith(f"[{section}]"):
+                    return panel
+            return self.form_pages.get(spec.id)
+        return None
+
+    def _update_badges(self, issues: list[str]):
+        counts: dict[str, int] = {}
+        for issue in issues:
+            widget = self._tab_for_issue(issue)
+            if widget is not None:
+                counts[str(widget)] = counts.get(str(widget), 0) + 1
+        for path, base in self.tab_base.items():
+            n = counts.get(path, 0)
+            try:
+                self.notebook.tab(path, text=" " + base + (f"  \u26a0 {n}" if n else ""))
+            except tk.TclError:
+                pass
+
+    def show_problems(self):
+        if not self.issues:
+            return
+        win = tk.Toplevel(self)
+        win.title("Problems")
+        win.transient(self)
+        ttk.Label(win, text="Double-click a problem to go to it. Problems never stop you saving.",
+                  padding=(10, 10, 10, 4)).pack(anchor="w")
+        box = tk.Listbox(win, width=90, height=min(16, len(self.issues)), exportselection=False)
+        for issue in self.issues:
+            box.insert("end", issue)
+        box.pack(fill="both", expand=True, padx=10)
+
+        def go(_event=None):
+            sel = box.curselection()
+            widget = self._tab_for_issue(self.issues[sel[0]]) if sel else None
+            if widget is not None:
+                self.notebook.select(widget)
+                win.destroy()
+
+        box.bind("<Double-1>", go)
+        box.bind("<Return>", go)
+        ttk.Button(win, text="Close", command=win.destroy).pack(pady=8)
+        win.bind("<Escape>", lambda _e: win.destroy())
+
+    def show_guide(self):
+        GuideWindow(self)
+
+    def hide_banner(self):
+        self.banner.grid_remove()
+        settings.update(hide_tips=True)
+
+    def show_banner(self):
+        self.banner.grid()
+        settings.update(hide_tips=False)
+
+    def _update_location(self):
+        if not hasattr(self, "location_var"):
+            return
+        root = self.mod_root()
+        if root is None:
+            text = "Not saved yet: Save will ask where to put the mod folder."
+        elif root.is_dir():
+            text = f"Mod folder: {root}"
+        else:
+            text = f"Will be created at: {root}"
+        self.location_var.set(text)
+        self.folder_btn.state(["!disabled"] if root is not None and root.is_dir() else ["disabled"])
+
+    def open_folder(self):
+        root = self.mod_root()
+        if root is None or not root.is_dir():
+            messagebox.showinfo("No folder yet", "The mod folder doesn't exist yet. Save the mod first.")
+            return
+        try:
+            if sys.platform.startswith("win"):
+                os.startfile(root)                      # noqa: S606 (Windows only)
+            else:
+                subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(root)])
+        except OSError as exc:
+            messagebox.showerror("Could not open the folder", str(exc))
 
     def _update_title(self):
         self.title(f"{'*' if self.dirty else ''}{self.mod_id_var.get() or 'Untitled'} — {APP_NAME}")
+        self._update_location()
 
-    # ---- file actions -----------------------------------------------
     def _confirm_discard(self) -> bool:
         if not self.dirty:
             return True
@@ -299,36 +434,54 @@ class ModCreatorApp(tk.Tk):
             return False
         return self.save_mod() if answer else True
 
-    def new_mod(self):
+    def new_mod(self) -> bool:
         if not self._confirm_discard():
-            return
+            return False
+        dialog = NewModDialog(self, initial_dir=self.parent_dir or settings.last_parent())
+        self.wait_window(dialog)
+        if dialog.result is None:
+            return False
+        mod_id, parent = dialog.result
         project = ModProject(self.schema, self.disc)
-        project.mod_id = "my_car_mod"
+        project.mod_id = mod_id
+        try:
+            root = project.create_work_folders(parent)
+        except (OSError, ValueError) as exc:
+            messagebox.showerror("Could not create the mod folder", str(exc))
+            return False
         self.extras = {}
         self._apply_project(project)
-        self.parent_dir, self.dirty = None, False
+        self.parent_dir, self.dirty = parent, True    # nothing saved yet: ask before closing
+        settings.update(last_parent=str(parent))
+        if self.notebook is not None:
+            self.notebook.select(0)
         self._update_title()
+        self.status_var.set(f"Created {root} with folders: {', '.join(project.work_folders())}. "
+                            "Fill in the Mod and Car tabs, then press Save.")
+        return True
 
-    def open_mod(self):
+    def open_mod(self, folder: str | Path | None = None) -> bool:
         if not self._confirm_discard():
-            return
-        folder = filedialog.askdirectory(title="Open a mod folder (the one containing mod.ini)")
+            return False
+        folder = folder or filedialog.askdirectory(title="Open a mod folder (the one containing mod.ini)")
         if not folder:
-            return
+            return False
         project = ModProject(self.schema, self.disc)
         try:
             notes = project.load_folder(folder, choose=self._pick_file)
         except (OSError, ValueError, UnicodeDecodeError) as exc:
             messagebox.showerror("Could not open mod", str(exc))
-            return
+            return False
         self._apply_project(project)
         self.parent_dir, self.dirty = Path(folder).parent, False
         self._update_title()
+        settings.add_recent(folder)
         extra = sum(len(v) for e in self.extras.values() for v in e.values())
         msg = f"Opened {folder}."
         if extra:
             msg += f" {extra} unrecognised entr{'y' if extra == 1 else 'ies'} kept as-is."
         self.status_var.set(" ".join([msg] + notes))
+        return True
 
     def open_single(self):
         path = filedialog.askopenfilename(title="Open a single .ini", filetypes=[("INI files", "*.ini"), ("All files", "*.*")])
@@ -397,6 +550,7 @@ class ModCreatorApp(tk.Tk):
             return False
         self.parent_dir, self.dirty = parent, False
         self._update_title()
+        settings.add_recent(target)
         self.status_var.set(f"Saved {len(written)} file(s) to {target}")
         stale = project.stale_files(parent, written)
         if stale:

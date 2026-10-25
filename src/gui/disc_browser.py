@@ -1,10 +1,6 @@
-"""Searchable table of the disc's cars, used to pick a donor."""
-
 from __future__ import annotations
-
 import tkinter as tk
 from tkinter import ttk
-
 from core.discdata import DiscCar, DiscCars
 
 COLUMNS = (("label", "Label", 190), ("name", "Name", 210), ("maker", "Maker", 110), ("year", "Year", 50),
@@ -13,7 +9,6 @@ COLUMNS = (("label", "Label", 190), ("name", "Name", 210), ("maker", "Maker", 11
 
 
 class DiscBrowser(tk.Toplevel):
-    """Modal dialog. After it closes, ``result`` is ``(car, fill_extras)`` or None."""
 
     def __init__(self, master, disc: DiscCars, current: str = ""):
         super().__init__(master)

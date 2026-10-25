@@ -14,6 +14,22 @@ from a form, in the same format as the reference mods (daihatsu_dumbo, weesan3, 
 
 Run `requirements.bat` once, then `run.bat` (or `cd src && python main.py`).
 
+## Getting started
+
+On launch you choose **New mod** or **Edit existing mod** (recently used mods are listed for one-click opening).
+**New mod** asks for a folder name and a location, then creates the mod folder with `cars/`, `makers/`,
+`images/` and `models/` ready to use. Then:
+
+1. Fill in the **mod** and **car** tabs. Fields marked `*` are required, and anything you leave blank is
+   borrowed from the donor car. Every field has a short explanation under it.
+2. Edit the **torque curve** (and **paints**, optionally), and use **model tools** for the 3D body and pictures.
+3. Check the **preview** tab, then **Save** (Ctrl+S).
+
+Helpers: the **Problems** button lists everything that needs attention (double-click to jump to it) and tabs
+with problems show a warning sign and count; the line under the toolbar shows the mod folder, with an
+**Open folder** button; **Help > Quick guide** (F1) explains the workflow and the jargon (label, donor, priority...).
+Problems are warnings only and never block saving.
+
 ## What it writes
 
 ```
@@ -39,9 +55,12 @@ src/main.py                 entry point
 src/core/curve.py           rpm:Nm curve parse / format / validate
 src/core/schema.py          loads the parameter schema (JSON)
 src/core/ini_model.py       one .ini: parse, validate, write in the game's style
-src/core/project.py         the three-file mod: paths, save, open folder
+src/core/project.py         the three-file mod: paths, work folders, save, open folder
+src/core/settings.py        per-user settings (~/.gt3_mod_creator.json): Blender path, recent mods, tips
 src/data/car_mod_schema.json   ** the parameters: edit this to add/change fields **
-src/gui/app.py              main window, menus, file actions
+src/gui/app.py              main window, menus, file actions, problems list
+src/gui/start_dialog.py     start-up (new / edit / recent) and new-mod dialogs
+src/gui/guide.py            Help > Quick guide text
 src/gui/parameter_form.py   auto-built form for each file
 src/gui/curve_panel.py      torque curve editor + live plot
 src/gui/paints_panel.py     [paints] list editor
@@ -81,7 +100,8 @@ you load via Options > Load parameter schema). A parameter looks like:
 
 Types: `string`, `int`, `float`, `bool`, `choice`, `list`, `curve`. Useful fields:
 `required`, `min`/`max`, `pattern`, `suggestions` (editable drop-down), `choices`
-(fixed list), `comment` (inline `;` note), `note_above`, `help` (shown in the form).
+(fixed list), `comment` (inline `;` note), `note_above`, `help` (shown under the field in the form only,
+never written to the .ini). Sections can also have a `description`, shown at the top of their box.
 Write defaults as strings if their exact text matters (`"2.00"`).
 
 ## Notes

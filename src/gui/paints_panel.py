@@ -1,11 +1,7 @@
-"""Editor for the free-form ``[paints]`` list: ``Name = #RRGGBB`` entries."""
-
 from __future__ import annotations
-
 import tkinter as tk
 from tkinter import colorchooser, messagebox, ttk
 from typing import Callable
-
 from core.schema import HEX_COLOR
 
 
@@ -20,7 +16,6 @@ class PaintsPanel(ttk.Frame):
         self._build()
         self.set_paints(self.defaults, notify=False)
 
-    # ---- public API -------------------------------------------------
     def get_paints(self) -> dict[str, str]:
         return dict(self.paints)
 
@@ -28,7 +23,6 @@ class PaintsPanel(ttk.Frame):
         self.paints = list(paints.items())
         self._refresh(notify)
 
-    # ---- UI ---------------------------------------------------------
     def _build(self):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
@@ -73,7 +67,6 @@ class PaintsPanel(ttk.Frame):
         if HEX_COLOR.fullmatch(value):
             self.swatch.configure(bg=value)
 
-    # ---- editing ----------------------------------------------------
     def _read(self) -> tuple[str, str] | None:
         name, colour = self.name_var.get().strip(), self.hex_var.get().strip()
         if not name:

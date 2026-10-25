@@ -1,12 +1,4 @@
-"""Schema: which files, sections and keys the creator offers, and how they are written.
-
-The schema is plain JSON (``data/car_mod_schema.json``) so parameters can be added,
-removed or re-ranged without touching Python code.  It mirrors the layout of a
-GT3-revisited mod folder:  mod.ini, makers/<maker>.ini, cars/<label>.ini.
-"""
-
 from __future__ import annotations
-
 import json
 import re
 from dataclasses import dataclass, field
@@ -40,24 +32,22 @@ class Parameter:
     required: bool = False
     min: float | None = None
     max: float | None = None
-    choices: list[str] = field(default_factory=list)      # restricted list
-    suggestions: list[str] = field(default_factory=list)  # editable drop-down
-    suggest_from: str = ""                                 # dataset suggestions, e.g. "cars.label"
-    pattern: str = ""                                      # regex the whole value must match
+    choices: list[str] = field(default_factory=list)     
+    suggestions: list[str] = field(default_factory=list)  
+    suggest_from: str = ""                          
+    pattern: str = ""                                 
     pattern_hint: str = ""
     min_items: int = 0
     max_items: int | None = None
-    # curve type
     max_points: int = curve_mod.DEFAULT_MAX_POINTS
     x_label: str = "X"
     y_label: str = "Y"
     title: str = ""
     power_readout: bool = False
     default_display_limit: int = 9000
-    # output formatting
-    comment: str = ""       # inline "; comment" (use \n for continuation lines)
-    note_above: str = ""    # comment lines written above the key (\n separated)
-    auto: str = ""          # "file.section.key": value is copied from there, no form field
+    comment: str = ""      
+    note_above: str = ""    
+    auto: str = ""         
 
     def default_text(self) -> str:
         if self.type == "bool":
@@ -71,7 +61,6 @@ class Parameter:
         return str(self.default)
 
     def validate(self, raw: str) -> str | None:
-        """Return an error message for a raw text value, or None if it is fine."""
         text = raw.strip()
         if not text:
             return "Required." if self.required else None
@@ -123,9 +112,9 @@ class Section:
     parameters: list[Parameter] = field(default_factory=list)
     description: str = ""
     kind: str = "fields"
-    lead_notes: str = ""           # comment lines right under the [header]
-    footer_notes: str = ""         # comment lines after the last key
-    emit_if: str = ""              # only write the section if this key is non-blank
+    lead_notes: str = ""           
+    footer_notes: str = ""        
+    emit_if: str = ""             
     paint_defaults: dict[str, str] = field(default_factory=dict)
 
 
@@ -133,10 +122,10 @@ class Section:
 class FileSpec:
     id: str
     title: str
-    path: str                      # may contain {file.section.key} placeholders
+    path: str                      
     sections: list[Section]
-    comment_col: int = 31          # column (0-based) where inline ';' comments start
-    preamble: str = ""             # comment lines at the very top; {mod_id} is substituted
+    comment_col: int = 31          
+    preamble: str = ""            
     optional: bool = False
     description: str = ""
 

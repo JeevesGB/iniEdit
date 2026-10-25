@@ -1,8 +1,3 @@
-# Blender (background) pass: CarConcept.glb -> a game-ready body for GT3 Revisited.
-#   blender -b --factory-startup --python prepare.py -- <in.glb> <out.glb>
-# Deletes wheels/brakes/axles/engine/under-hood/small interior parts and the steering
-# emblem, decimates, joins into one mesh, renames materials for the loader, moves the
-# origin to the wheelbase midpoint on the ground. Materials are finalised by finish.py.
 import bpy, bmesh, sys, math
 from mathutils import Vector
 
@@ -16,7 +11,6 @@ def tris(o):
     return sum(len(p.vertices) - 2 for p in o.data.polygons) if o.type == 'MESH' else 0
 before = sum(tris(o) for o in objs)
 
-# Wheel centres (before deleting them): the origin goes to the wheelbase midpoint.
 wc = {n: objs[n].matrix_world.translation.copy() for n in ('WheelFrontL', 'WheelFrontR', 'WheelRearL', 'WheelRearR')}
 front_y = (wc['WheelFrontL'].y + wc['WheelFrontR'].y) / 2
 rear_y = (wc['WheelRearL'].y + wc['WheelRearR'].y) / 2
@@ -24,9 +18,6 @@ mid_y = (front_y + rear_y) / 2
 print('wheelbase', rear_y - front_y, 'front track', wc['WheelFrontL'].x - wc['WheelFrontR'].x,
       'rear track', wc['WheelRearL'].x - wc['WheelRearR'].x, 'wheel z', wc['WheelFrontL'].z)
 
-# Parts the game doesn't need: the wheels, tyres and brakes (the engine draws its own),
-# hidden mechanicals, small interior parts, the wiper blades (thin: unreadable once
-# decimated) and the steering-wheel emblem (a trademark).
 DELETE_PREFIX = ('BodyWindshieldWipers', 'Wheel', 'Axles', 'Engine', 'BodyHoodInterior', 'BodyHoodUnder', 'InteriorPedal',
                  'InteriorSteeringEmblem', 'InteriorRearHatch', 'InteriorFloormats', 'InteriorSteeringHandle',
                  'InteriorDoorR04', 'InteriorDoorR05', 'InteriorDoorR06', 'InteriorDoorL04', 'InteriorDoorL05',
@@ -40,7 +31,6 @@ for o in doomed:
     bpy.data.objects.remove(o, do_unlink=True)
 meshes = [o for o in objs if o.type == 'MESH']
 
-# Bake every transform, then drop parents.
 for o in meshes:
     mw = o.matrix_world.copy()
     o.parent = None
@@ -53,7 +43,6 @@ for o in meshes:
 bpy.context.view_layer.objects.active = meshes[0]
 bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
 
-# Decimation ratio per object (by name); small parts are left alone.
 def ratio(o):
     n = o.name
     t = tris(o)
@@ -65,18 +54,15 @@ def ratio(o):
 
 for o in meshes:
     me = o.data
-    # Custom normals from the import would be wrong after decimation: recomputed below.
     if me.has_custom_normals:
         bpy.context.view_layer.objects.active = o
         bpy.ops.mesh.customdata_custom_splitnormals_clear()
-    # Only the licence plate keeps a UV set (its texture); everything else is flat colour.
     keep_uv = o.name.startswith('License')
     for uv in list(me.uv_layers):
         if not keep_uv or uv != me.uv_layers[0]:
             me.uv_layers.remove(uv)
     for ca in list(me.color_attributes):
         me.color_attributes.remove(ca)
-    # Merge the duplicate vertices of UV seams so the decimator sees one surface.
     bm = bmesh.new()
     bm.from_mesh(me)
     if not keep_uv:
@@ -92,7 +78,6 @@ for o in meshes:
         bpy.context.view_layer.objects.active = o
         bpy.ops.object.modifier_apply(modifier=m.name)
 
-# One object.
 bpy.ops.object.select_all(action='DESELECT')
 for o in meshes:
     o.select_set(True)
@@ -102,18 +87,15 @@ body = bpy.context.view_layer.objects.active
 body.name = 'body'
 body.data.name = 'body'
 
-# Origin: wheelbase midpoint on the ground (the tyres' contact patch is z = 0 already).
 for v in body.data.vertices:
     v.co.y -= mid_y
-# Flat/smooth shading by angle: hard creases stay sharp, panels stay smooth.
 bpy.context.view_layer.objects.active = body
 body.select_set(True)
 bpy.ops.object.shade_smooth_by_angle(angle=math.radians(40), keep_sharp_edges=False)
 
-# Material renames for the loader (finish.py sets their colours).
 RENAME = {
-    'Paint 1 Carmine': 'body_paint',          # 'paint'/'body': takes the chosen paint colour
-    'Paint 2 Carmine': 'trim_gloss_black',    # roof, sills, mirror caps, bonnet vent: two-tone
+    'Paint 1 Carmine': 'body_paint',         
+    'Paint 2 Carmine': 'trim_gloss_black',  
     'Glass': 'window_glass',
     'Headlight': 'headlamp',
     'Brakelight': 'taillamp',
@@ -131,7 +113,6 @@ RENAME = {
     'Interior 3 Carmine': 'interior_leather_red',
 }
 mats = body.data.materials
-# Object-linked slots (the importer's variant setup) become plain mesh slots.
 for i, slot in enumerate(body.material_slots):
     eff = slot.material
     if slot.link == 'OBJECT':
@@ -148,7 +129,6 @@ for i, m in enumerate(mats):
         nm = bpy.data.materials.new(new)
         targets[new] = nm
     mats[i] = targets[new]
-# The plate keeps its UVs; give it an image node so the exporter writes TEXCOORD_0.
 plate = targets.get('plate')
 img = bpy.data.images.new('plate', 8, 2)
 tex = plate.node_tree.nodes.new('ShaderNodeTexImage')
@@ -156,7 +136,6 @@ tex.image = img
 bsdf = plate.node_tree.nodes['Principled BSDF']
 plate.node_tree.links.new(tex.outputs['Color'], bsdf.inputs['Base Color'])
 
-# Merge slots that now share a material, then drop the unused ones.
 first = {}
 for i, m in enumerate(mats):
     first.setdefault(m.name if m else None, i)
@@ -165,7 +144,6 @@ for poly in body.data.polygons:
     poly.material_index = first[m.name if m else None]
 bpy.ops.object.material_slot_remove_unused()
 body.data.validate(verbose=False)
-# Drop the paint variants (KHR_materials_variants) and every material the body no longer uses.
 for holder, prop in ((bpy.context.scene, 'gltf2_KHR_materials_variants_variants'), (body.data, 'gltf2_variant_mesh_data')):
     if hasattr(holder, prop): getattr(holder, prop).clear()
 keep = {m.name for m in body.data.materials}

@@ -1,7 +1,4 @@
-"""A mod project: the set of .ini documents that make up one mod folder."""
-
 from __future__ import annotations
-
 import re
 from pathlib import Path, PurePosixPath
 from typing import Callable
@@ -13,6 +10,7 @@ from .schema import FileSpec, Schema, slugify
 
 PLACEHOLDER = re.compile(r"\{(\w+)\.(\w+)\.(\w+)\}")
 MOD_ID_RE = re.compile(r"[a-z0-9_]+")
+EXTRA_WORK_DIRS = ("images", "models")  
 
 
 class ModProject:
@@ -23,16 +21,13 @@ class ModProject:
         self.docs: dict[str, IniDocument] = {s.id: IniDocument(schema.defaults(s.id)) for s in schema.files}
         self.include: dict[str, bool] = {s.id: True for s in schema.files}
 
-    # ---- derived values --------------------------------------------
     def apply_auto_values(self) -> None:
-        """Fill parameters that copy another value (e.g. the maker file's name)."""
         for spec, sec, param in self.schema.all_parameters():
             if param.auto:
                 f, s, k = param.auto.split(".")
                 self.docs[spec.id].values.setdefault(sec.name, {})[param.key] = self.docs[f].get(s, k).strip()
 
     def resolved_docs(self) -> dict[str, IniDocument]:
-        """Copies of the documents with ``{file.section.key}`` placeholders filled in."""
         self.apply_auto_values()
         raw = self.docs
 
@@ -44,7 +39,6 @@ class ModProject:
                                   for s, items in doc.values.items()}) for fid, doc in raw.items()}
 
     def relative_path(self, spec: FileSpec) -> str | None:
-        """Path of ``spec`` inside the mod folder, or None if a placeholder is empty."""
         missing = False
 
         def sub(m):
@@ -57,9 +51,7 @@ class ModProject:
         path = PLACEHOLDER.sub(sub, spec.path)
         return None if missing else path
 
-    # ---- output -----------------------------------------------------
     def render(self, comments: bool = True) -> dict[str, tuple[str | None, str]]:
-        """``{file_id: (relative_path, text)}`` for every included file."""
         docs = self.resolved_docs()
         out = {}
         for spec in self.schema.files:
@@ -96,7 +88,6 @@ class ModProject:
         return issues
 
     def save(self, parent_dir: str | Path, comments: bool = True) -> list[Path]:
-        """Write the mod to ``parent_dir/<mod_id>/``; returns the files written."""
         rendered = self.render(comments)
         root = Path(parent_dir) / self.mod_id
         written = []
@@ -107,21 +98,33 @@ class ModProject:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(text, encoding="utf-8", newline="\n")
             written.append(target)
-        for sub in ("images", "models"):       # where the picture / model files go
+        for sub in EXTRA_WORK_DIRS:
             (root / sub).mkdir(exist_ok=True)
         return written
 
+    def work_folders(self) -> list[str]:
+        dirs = {PurePosixPath(s.path).parent.as_posix() for s in self.schema.files}
+        dirs.discard(".")
+        return sorted(dirs | set(EXTRA_WORK_DIRS))
+
+    def create_work_folders(self, parent_dir: str | Path) -> Path:
+        if not self.mod_id or not MOD_ID_RE.fullmatch(self.mod_id):
+            raise ValueError("Mod folder name: use a-z, 0-9 and _ only.")
+        root = Path(parent_dir) / self.mod_id
+        if (root / "mod.ini").exists():
+            raise ValueError(f"{root} already contains a mod. Use \"Edit existing mod\" to open it.")
+        for sub in self.work_folders():
+            (root / sub).mkdir(parents=True, exist_ok=True)
+        return root
+
     def stale_files(self, parent_dir: str | Path, written: list[Path]) -> list[Path]:
-        """.ini files in the folders we write to that this save did not produce."""
         root = Path(parent_dir) / self.mod_id
         done = {p.resolve() for p in written}
         dirs = {p.parent for p in written}
         return sorted(p for d in dirs if d != root for p in d.glob("*.ini") if p.resolve() not in done)
 
-    # ---- loading ----------------------------------------------------
     def load_folder(self, folder: str | Path, choose: Callable[[FileSpec, list[Path]], Path | None] | None = None
                     ) -> list[str]:
-        """Load mod.ini / makers/ / cars/ from a mod folder; returns notes for the user."""
         folder = Path(folder)
         notes = []
         self.mod_id = folder.name
@@ -148,7 +151,6 @@ class ModProject:
         return notes
 
     def load_single(self, path: str | Path) -> str:
-        """Load one .ini into whichever file slot its sections identify."""
         doc = IniDocument.parse(Path(path).read_text(encoding="utf-8-sig"))
         for spec in self.schema.files:
             first = spec.sections[0].name

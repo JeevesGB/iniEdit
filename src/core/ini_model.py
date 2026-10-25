@@ -1,43 +1,25 @@
-"""One .ini document: parse, validate against a FileSpec, and write in the game's style.
-
-Output style (matches the reference mods):
-  * ``key = value``, sections in schema order, blank line between sections
-  * optional ``; comments`` - inline ones aligned to a fixed column, wrapped ones
-    continuing on following lines at the same column
-  * values are written exactly as typed (``2.00`` stays ``2.00``)
-  * LF line endings, ASCII text
-"""
-
 from __future__ import annotations
-
 import configparser
-
 from .schema import FileSpec, Section
 
 
 class IniDocument:
-    """Raw string values as ``values[section][key]``.
-
-    Entries the schema doesn't know are kept and written after the known ones, so
-    opening an existing file never silently drops data.
-    """
 
     def __init__(self, values: dict[str, dict[str, str]] | None = None):
         self.values: dict[str, dict[str, str]] = values or {}
 
-    # ---- reading ----------------------------------------------------
     @classmethod
     def parse(cls, text: str) -> "IniDocument":
         parser = configparser.ConfigParser(
             interpolation=None,
             delimiters=("=",),
-            comment_prefixes=(";",),            # '#' is NOT a comment: paints use '#RRGGBB'
-            inline_comment_prefixes=(";",),     # `key = value   ; note`
+            comment_prefixes=(";",),            
+            inline_comment_prefixes=(";",),     
             empty_lines_in_values=False,
             default_section="\0no-default",
             strict=False,
         )
-        parser.optionxform = str                # paint names keep their case
+        parser.optionxform = str  
         try:
             parser.read_string(text)
         except configparser.Error as exc:
@@ -60,7 +42,6 @@ class IniDocument:
                     out.setdefault(sname, {})[key] = value
         return out
 
-    # ---- validation -------------------------------------------------
     def validate(self, spec: FileSpec) -> list[str]:
         issues = []
         for sec in spec.sections:
@@ -77,7 +58,6 @@ class IniDocument:
     def _section_skipped(self, sec: Section) -> bool:
         return bool(sec.emit_if) and not self.get(sec.name, sec.emit_if).strip()
 
-    # ---- writing ----------------------------------------------------
     def dumps(self, spec: FileSpec, comments: bool = True, mod_id: str = "") -> str:
         lines: list[str] = []
         col = spec.comment_col
@@ -132,13 +112,12 @@ class IniDocument:
                 for key, value in self.values.get(sec.name, {}).items():
                     if key not in known and value.strip():
                         entry(key, value.strip())
-                if len(lines) == header_at:      # only notes, no entries: drop them too
+                if len(lines) == header_at:     
                     del lines[lead_at:]
                 elif comments and sec.footer_notes:
                     comment_block(sec.footer_notes)
-            if len(lines) == header_at:          # nothing under the header: drop it
+            if len(lines) == header_at:          
                 del lines[start:]
-        # sections the schema doesn't know about
         known_sections = {s.name for s in spec.sections}
         for name, items in self.values.items():
             if name not in known_sections and any(v.strip() for v in items.values()):

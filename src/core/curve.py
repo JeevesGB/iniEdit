@@ -1,11 +1,4 @@
-"""Curve helpers: parse, format, validate and analyse ``x:y`` curves.
-
-Curve format is a space separated list of ``x:y`` pairs, e.g. for a torque
-curve ``1000:205 2000:250 3000:282`` (rpm:Nm).  Pure Python, no GUI imports.
-"""
-
 from __future__ import annotations
-
 import re
 
 Point = tuple[int, float]
@@ -16,19 +9,16 @@ _PAIR_RE = re.compile(r"(\d+)\s*:\s*(-?(?:\d+(?:\.\d*)?|\.\d+))")
 
 
 def parse_curve(text: str) -> list[Point]:
-    """Extract ``x:y`` pairs from a bare value or a ``curve = ...`` line."""
     match = re.search(r"(?im)^\s*[\w.\-]+\s*=\s*(.*?)\s*$", text)
     source = match.group(1) if match else text
     return [(int(x), float(y)) for x, y in _PAIR_RE.findall(source)]
 
 
 def format_curve(points: list[Point]) -> str:
-    """Format points (sorted by x) as ``x:y x:y ...``."""
     return " ".join(f"{x}:{y:g}" for x, y in sorted(points, key=lambda p: p[0]))
 
 
 def validate_points(points: list[Point], max_points: int = DEFAULT_MAX_POINTS) -> None:
-    """Raise ``ValueError`` describing the first problem found."""
     if not points:
         raise ValueError("No x:y pairs were found.")
     if len(points) > max_points:
@@ -41,7 +31,6 @@ def validate_points(points: list[Point], max_points: int = DEFAULT_MAX_POINTS) -
 
 
 def validate_text(text: str, max_points: int = DEFAULT_MAX_POINTS) -> str | None:
-    """Return an error message for a curve value string, or ``None`` if valid."""
     stripped = text.strip()
     if not stripped:
         return "Curve is empty."

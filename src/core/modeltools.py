@@ -1,15 +1,4 @@
-"""Model and picture helpers (no GUI): the GT3 Revisited example_coupe scripts as functions.
-
-* ``run_prepare``  - Blender pass (tools/prepare.py): strip, decimate, join, rename materials
-* ``finish_glb``   - set the loader's materials, embed a plate texture, repack the GLB
-* ``measure_glb``  - body size for the [body] section
-* ``make_pictures``- dealer picture (640x448) and icon (51x27) from a car viewer screenshot
-
-``finish_glb`` and ``run_prepare`` are written for the CarConcept model (see tools/README.md).
-"""
-
 from __future__ import annotations
-
 import json
 import os
 import re
@@ -24,34 +13,24 @@ JSON_CHUNK, BIN_CHUNK = 0x4E4F534A, 0x004E4942
 
 
 class ModelToolError(Exception):
-    """A readable failure to show the user."""
+    def _read_glb(path: str | Path) -> tuple[dict, bytes]:
+        d = Path(path).read_bytes()
+        if d[:4] != b"glTF":
+            raise ModelToolError(f"{Path(path).name} is not a binary glTF (.glb) file.")
+        o, doc, binc = 12, None, b""
+        while o + 8 <= len(d):
+            ln, ty = struct.unpack_from("<II", d, o)
+            if ty == JSON_CHUNK:
+                doc = json.loads(d[o + 8:o + 8 + ln])
+            elif ty == BIN_CHUNK:
+                binc = d[o + 8:o + 8 + ln]
+            o += 8 + ((ln + 3) & ~3)
+        if doc is None:
+            raise ModelToolError("The .glb has no JSON chunk.")
+        return doc, binc
 
 
-# ---- GLB reading ------------------------------------------------------------
-def _read_glb(path: str | Path) -> tuple[dict, bytes]:
-    d = Path(path).read_bytes()
-    if d[:4] != b"glTF":
-        raise ModelToolError(f"{Path(path).name} is not a binary glTF (.glb) file.")
-    o, doc, binc = 12, None, b""
-    while o + 8 <= len(d):
-        ln, ty = struct.unpack_from("<II", d, o)
-        if ty == JSON_CHUNK:
-            doc = json.loads(d[o + 8:o + 8 + ln])
-        elif ty == BIN_CHUNK:
-            binc = d[o + 8:o + 8 + ln]
-        o += 8 + ((ln + 3) & ~3)
-    if doc is None:
-        raise ModelToolError("The .glb has no JSON chunk.")
-    return doc, binc
-
-
-# ---- measure ----------------------------------------------------------------
 def measure_glb(path: str | Path) -> dict[str, float]:
-    """Body extent as the game sees it. glTF axes: x across, y up, z along (nose +z).
-
-    Returns metres in ``x/y/z_min/max`` and the mm values for the form:
-    ``length_mm``, ``width_mm`` (without mirrors), ``height_mm``.
-    """
     doc, b = _read_glb(path)
     pts = []
     for mesh in doc["meshes"]:
@@ -75,7 +54,6 @@ def measure_glb(path: str | Path) -> dict[str, float]:
     }
 
 
-# ---- finish -----------------------------------------------------------------
 GLYPHS = {
     "G": ["01110", "10001", "10000", "10111", "10001", "10001", "01111"],
     "T": ["11111", "00100", "00100", "00100", "00100", "00100", "00100"],
@@ -86,7 +64,6 @@ PLATE_W, PLATE_H = 256, 64
 
 
 def plate_png(text: str = "GT3R") -> bytes:
-    """A plain licence plate drawn from a 5x7 pixel font (only the letters in GLYPHS)."""
     W, H = PLATE_W, PLATE_H
     bg, ink, edge = (232, 232, 224), (24, 28, 44), (40, 40, 40)
     px = [[bg for _ in range(W)] for _ in range(H)]
@@ -134,12 +111,10 @@ MATS = {
 
 
 def finish_glb(src: str | Path, dst: str | Path) -> str:
-    """Set the GT3 Revisited materials on a ``prepare`` output and repack it. Returns a summary line."""
     doc, binc = _read_glb(src)
     png = plate_png()
     views = [binc[v.get("byteOffset", 0):v.get("byteOffset", 0) + v["byteLength"]] for v in doc["bufferViews"]]
 
-    # The exporter may leave the slot-0 material (the body paint) off its primitive.
     bare = [p for m in doc["meshes"] for p in m["primitives"] if "material" not in p]
     if len(bare) > 1:
         raise ModelToolError("More than one primitive without a material: this is not a prepare.py output.")
@@ -217,12 +192,10 @@ def finish_glb(src: str | Path, dst: str | Path) -> str:
     return f"wrote {dst.name}: {len(glb):,} bytes, {tris:,} triangles, {len(doc['materials'])} materials"
 
 
-# ---- Blender prepare --------------------------------------------------------
 _DIMS = re.compile(r"wheelbase\s+(\S+)\s+front track\s+(\S+)\s+rear track\s+(\S+)")
 
 
 def find_blender() -> str:
-    """Best guess for the Blender executable ('' if none found)."""
     from shutil import which
     found = which("blender")
     if found:
@@ -239,7 +212,6 @@ def find_blender() -> str:
 
 def run_prepare(blender: str | Path, script: str | Path, src: str | Path, dst: str | Path,
                 on_line: Callable[[str], None] = lambda _l: None) -> dict[str, int]:
-    """Run tools/prepare.py in background Blender. Returns the modelled wheelbase/tracks in mm (if printed)."""
     if not Path(blender).is_file():
         raise ModelToolError("Blender not found: choose its executable.")
     if not Path(script).is_file():
@@ -264,9 +236,7 @@ def run_prepare(blender: str | Path, script: str | Path, src: str | Path, dst: s
     return dims
 
 
-# ---- pictures ---------------------------------------------------------------
 def make_pictures(shot: str | Path, pic: str | Path, thumb: str | Path) -> str:
-    """Crop a car viewer screenshot to the dealer picture (640x448) and thumbnail (51x27)."""
     try:
         from PIL import Image
     except ImportError as exc:

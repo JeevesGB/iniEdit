@@ -1,11 +1,7 @@
-"""Auto-generated, scrollable form for the parameters of one FileSpec (curves and paints have their own tabs)."""
-
 from __future__ import annotations
-
 import tkinter as tk
 from tkinter import ttk
 from typing import Callable
-
 from core.schema import TRUE_WORDS, FileSpec, Parameter
 
 ERROR_FG = "#c0392b"
@@ -28,7 +24,6 @@ class ParameterForm(ttk.Frame):
         self._suspend = False
         self._build()
 
-    # ---- public API -------------------------------------------------
     def get_values(self) -> dict[str, dict[str, str]]:
         values: dict[str, dict[str, str]] = {}
         for (section, key), var in self.vars.items():
@@ -41,7 +36,6 @@ class ParameterForm(ttk.Frame):
         return values
 
     def set_values(self, values: dict[str, dict[str, str]], fill_defaults: bool = True) -> None:
-        """Load values. Missing keys use schema defaults, or stay blank if ``fill_defaults`` is False."""
         self._suspend = True
         try:
             for (section, key), var in self.vars.items():
@@ -63,7 +57,6 @@ class ParameterForm(ttk.Frame):
             count += self._validate(section, key)
         return count
 
-    # ---- construction ----------------------------------------------
     def _build(self):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
@@ -143,7 +136,7 @@ class ParameterForm(ttk.Frame):
 
         err = ttk.Label(frame, text="", foreground=ERROR_FG)
         err.grid(row=r + 1, column=1, columnspan=2, sticky="w")
-        err.grid_remove()          # only takes space while there is an error
+        err.grid_remove()        
         self.error_labels[ident] = err
         next_row = r + 2
         if param.help:
@@ -155,7 +148,6 @@ class ParameterForm(ttk.Frame):
         var.trace_add("write", lambda *_a, s=section, k=param.key: self._on_var(s, k))
         return next_row
 
-    # ---- validation -------------------------------------------------
     def _validate(self, section: str, key: str) -> int:
         param = self.params.get((section, key))
         var = self.vars[(section, key)]

@@ -1,14 +1,9 @@
-"""Editable x:y curve with live matplotlib plot (generalised torque-curve editor)."""
-
 from __future__ import annotations
-
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from typing import Callable
-
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
-
 from core import curve as curve_mod
 from core.schema import Parameter
 
@@ -25,7 +20,6 @@ class CurvePanel(ttk.Frame):
         self._build()
         self.set_text(param.default_text(), notify=False)
 
-    # ---- public API -------------------------------------------------
     def get_text(self) -> str:
         return curve_mod.format_curve(self.points)
 
@@ -33,7 +27,6 @@ class CurvePanel(ttk.Frame):
         self.points = sorted(curve_mod.parse_curve(text), key=lambda p: p[0])
         self._refresh_all(notify=notify)
 
-    # ---- UI ---------------------------------------------------------
     def _build(self):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
@@ -101,7 +94,6 @@ class CurvePanel(ttk.Frame):
         self.output_label = ttk.Label(summary, text="", padding=(20, 0))
         self.output_label.pack(side="left")
 
-    # ---- editing ----------------------------------------------------
     def _read_point(self) -> curve_mod.Point | None:
         try:
             x = int(self.x_var.get().strip())
@@ -158,7 +150,6 @@ class CurvePanel(ttk.Frame):
             self.x_var.set(str(x))
             self.y_var.set(f"{y:g}")
 
-    # ---- refresh ----------------------------------------------------
     def _refresh_all(self, notify: bool = True):
         if self.points:                       # widen the graph so no point is cut off
             try:
@@ -209,7 +200,6 @@ class CurvePanel(ttk.Frame):
         self.figure.tight_layout()
         self.canvas.draw_idle()
 
-    # ---- import / export -------------------------------------------
     def copy_curve(self):
         if not self.points:
             messagebox.showwarning("No points", "Add at least one point before copying.")

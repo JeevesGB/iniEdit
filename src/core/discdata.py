@@ -1,9 +1,3 @@
-"""Reference data about the disc's own cars (data/cars.json).
-
-Used for the donor picker, maker suggestions and label-clash checks. If the file is
-missing the app still works, it just has no suggestions.
-"""
-
 from __future__ import annotations
 
 import json
@@ -67,7 +61,6 @@ class DiscCars:
         return _norm(maker) in self._maker_keys if maker.strip() else False
 
     def lookup(self, source: str) -> list[str]:
-        """Suggestion lists for schema ``suggest_from`` values."""
         return {"cars.label": self.labels, "cars.maker": self.makers}.get(source, [])
 
     def search(self, text: str) -> list[DiscCar]:
