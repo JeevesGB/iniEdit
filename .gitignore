@@ -1,0 +1,7 @@
+.vscode
+__pycache__
+builds
+.exe
+.zip
+build.bat
+built_icon.py 

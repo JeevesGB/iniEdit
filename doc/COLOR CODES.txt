@@ -1,0 +1,11 @@
+Fat Gold = #e5c207
+Lilac = #d1a6ff
+Deep Ocean = #091c2c
+Deep Black = #070708
+Coal = #171b1d
+Cloud Blue = #e6f4ff
+Bullion = #ed8f1b
+Meadow Green = #477930
+Cream = #dcdbb3 
+Ivory = #fef2f2
+Midnight = #180d32

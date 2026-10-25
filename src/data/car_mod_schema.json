@@ -1,0 +1,656 @@
+{
+  "name": "GT3 Revisited car mod",
+  "format_version": 1,
+  "files": [
+    {
+      "id": "mod",
+      "title": "mod",
+      "path": "mod.ini",
+      "comment_col": 21,
+      "description": "The mod's identity. The folder name is the mod's id.",
+      "preamble": "The mod's identity. The folder name ({mod_id}) is the mod's id.",
+      "sections": [
+        {
+          "name": "mod",
+          "title": "Mod",
+          "parameters": [
+            {
+              "key": "name",
+              "label": "Mod name",
+              "default": "My Car Mod",
+              "required": true
+            },
+            {
+              "key": "version",
+              "label": "Version",
+              "default": "1.0"
+            },
+            {
+              "key": "author",
+              "label": "Author",
+              "default": "Your name",
+              "required": true
+            },
+            {
+              "key": "description",
+              "label": "Description",
+              "default": "A GT3 Revisited car mod."
+            },
+            {
+              "key": "priority",
+              "label": "Priority",
+              "type": "int",
+              "default": "10",
+              "comment": "higher wins when two mods provide the same file or car label",
+              "help": "Higher wins when two mods provide the same file or car label."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "maker",
+      "title": "maker",
+      "path": "makers/{car.car.maker}.ini",
+      "optional": true,
+      "comment_col": 31,
+      "description": "Only needed for a maker the disc doesn't have. Every car whose [car] maker matches this maker's name is sold at its dealer.",
+      "preamble": "A maker the disc doesn't have gets a dealer of its own (docs/MODDING.md\n\"Dealers and makers\"). Every car whose [car] maker matches `name` is sold here.",
+      "sections": [
+        {
+          "name": "maker",
+          "title": "Maker",
+          "footer_notes": "icon, background and logo are optional: without them the dealer shows its name.",
+          "parameters": [
+            {
+              "key": "name",
+              "label": "Maker name",
+              "default": "",
+              "auto": "car.car.maker",
+              "help": "Taken from the car's Maker field."
+            },
+            {
+              "key": "region",
+              "label": "Region",
+              "default": "jp",
+              "suggestions": [
+                "jp",
+                "fr",
+                "de",
+                "it",
+                "gb",
+                "us"
+              ],
+              "required": true,
+              "help": "Dealer region code, e.g. jp (Japan), fr (France)."
+            },
+            {
+              "key": "description",
+              "label": "Description",
+              "default": "{mod.mod.description}",
+              "help": "Defaults to the mod's description."
+            },
+            {
+              "key": "icon",
+              "label": "Icon",
+              "default": "",
+              "help": "Optional image path."
+            },
+            {
+              "key": "background",
+              "label": "Background",
+              "default": "",
+              "help": "Optional image path."
+            },
+            {
+              "key": "logo",
+              "label": "Logo",
+              "default": "",
+              "help": "Optional image path."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "car",
+      "title": "car",
+      "path": "cars/{car.car.label}.ini",
+      "comment_col": 31,
+      "description": "The car, defined as data. Anything you leave blank is borrowed from the donor.",
+      "sections": [
+        {
+          "name": "car",
+          "title": "Car",
+          "parameters": [
+            {
+              "key": "label",
+              "label": "Label",
+              "default": "my_car_89",
+              "required": true,
+              "pattern": "[a-z0-9_]+",
+              "pattern_hint": "Use a-z, 0-9 and _ only.",
+              "comment": "unique id (a-z, 0-9, _). Garage, saves and replays use it: never change it once shared",
+              "help": "Unique id. Never change it once shared. The .ini file is named after it."
+            },
+            {
+              "key": "name",
+              "label": "Name",
+              "default": "my_car",
+              "required": true,
+              "comment": "shown after the maker's name"
+            },
+            {
+              "key": "maker",
+              "label": "Maker",
+              "default": "My Maker",
+              "required": true,
+              "help": "Pick a disc maker to sell under it, or type a new one (then keep the maker file). Must match the maker file's name.",
+              "suggest_from": "cars.maker"
+            },
+            {
+              "key": "year",
+              "label": "Year",
+              "type": "int",
+              "default": "1989",
+              "min": 1880,
+              "max": 2100
+            },
+            {
+              "key": "price",
+              "label": "Price",
+              "type": "int",
+              "default": "3000",
+              "unit": "credits",
+              "min": 0
+            },
+            {
+              "key": "category",
+              "label": "Category",
+              "default": "production",
+              "suggestions": [
+                "production"
+              ],
+              "required": true,
+              "help": "production = a road car (race cars use other bodies and rules)."
+            },
+            {
+              "key": "donor",
+              "label": "Donor",
+              "default": "z_detroitver_01",
+              "required": true,
+              "comment": "the donor lends suspension geometry, steering, tyre compounds,\nbrakes, aids and the shop's upgrade parts.",
+              "help": "A disc car (see data/cars.json): lends suspension geometry, steering, tyre compounds, brakes, aids and upgrade parts. Use Browse to search the disc's cars.",
+              "suggest_from": "cars.label"
+            }
+          ]
+        },
+        {
+          "name": "body",
+          "title": "Body",
+          "lead_notes": "Measured from the model: ground at y = 0, centred on the wheelbase midpoint.",
+          "parameters": [
+            {
+              "key": "weight_kg",
+              "label": "Curb weight",
+              "type": "float",
+              "default": "1300",
+              "unit": "kg",
+              "min": 100,
+              "comment": "curb weight (the game adds 120 kg of driver)"
+            },
+            {
+              "key": "front_weight_pct",
+              "label": "Front weight",
+              "type": "float",
+              "default": "52",
+              "unit": "%",
+              "min": 0,
+              "max": 100
+            },
+            {
+              "key": "length_mm",
+              "label": "Length",
+              "type": "int",
+              "default": "4000",
+              "unit": "mm",
+              "min": 500
+            },
+            {
+              "key": "width_mm",
+              "label": "Width",
+              "type": "int",
+              "default": "1700",
+              "unit": "mm",
+              "min": 500,
+              "comment": "without the mirrors"
+            },
+            {
+              "key": "height_mm",
+              "label": "Height",
+              "type": "int",
+              "default": "1400",
+              "unit": "mm",
+              "min": 500
+            },
+            {
+              "key": "wheelbase_mm",
+              "label": "Wheelbase",
+              "type": "int",
+              "default": "2500",
+              "unit": "mm",
+              "min": 500,
+              "comment": "between the wheel centres of the model"
+            },
+            {
+              "key": "front_track_mm",
+              "label": "Front track",
+              "type": "int",
+              "default": "1450",
+              "unit": "mm",
+              "min": 500,
+              "comment": "centre to centre of the modelled tyres"
+            },
+            {
+              "key": "rear_track_mm",
+              "label": "Rear track",
+              "type": "int",
+              "default": "1450",
+              "unit": "mm",
+              "min": 500
+            },
+            {
+              "key": "cd",
+              "label": "Drag coefficient (Cd)",
+              "type": "float",
+              "default": "0.32",
+              "min": 0.05,
+              "max": 2
+            },
+            {
+              "key": "frontal_area_m2",
+              "label": "Frontal area",
+              "type": "float",
+              "default": "2.00",
+              "unit": "m²",
+              "min": 0.5,
+              "max": 10,
+              "comment": "about 0.82 x width x height"
+            },
+            {
+              "key": "ride_height_mm",
+              "label": "Ride height",
+              "type": "int",
+              "default": "",
+              "unit": "mm",
+              "help": "Leave blank to use the donor's."
+            }
+          ]
+        },
+        {
+          "name": "powertrain",
+          "title": "Powertrain",
+          "parameters": [
+            {
+              "key": "type",
+              "label": "Type",
+              "default": "engine",
+              "suggestions": [
+                "engine"
+              ],
+              "required": true
+            },
+            {
+              "key": "curve",
+              "label": "Torque curve",
+              "type": "curve",
+              "required": true,
+              "max_points": 16,
+              "title": "Engine torque curve",
+              "x_label": "Engine speed (RPM)",
+              "y_label": "Torque (Nm)",
+              "power_readout": true,
+              "default_display_limit": 10000,
+              "note_above": "Torque (N*m) at the crank; peak power = torque x rpm / 9549.",
+              "help": "rpm:Nm pairs, up to 16 points.",
+              "default": [
+                [
+                  1000,
+                  90
+                ],
+                [
+                  2000,
+                  120
+                ],
+                [
+                  3000,
+                  145
+                ],
+                [
+                  4000,
+                  165
+                ],
+                [
+                  5000,
+                  175
+                ],
+                [
+                  6000,
+                  178
+                ],
+                [
+                  6800,
+                  180
+                ],
+                [
+                  7200,
+                  170
+                ],
+                [
+                  8000,
+                  150
+                ],
+                [
+                  9000,
+                  120
+                ]
+              ]
+            },
+            {
+              "key": "max_rpm",
+              "label": "Rev limiter",
+              "type": "int",
+              "default": "9000",
+              "unit": "RPM",
+              "min": 1000,
+              "comment": "rev limiter"
+            },
+            {
+              "key": "idle_rpm",
+              "label": "Idle speed",
+              "type": "int",
+              "default": "850",
+              "unit": "RPM",
+              "min": 200
+            },
+            {
+              "key": "output_pct",
+              "label": "Output factor",
+              "type": "int",
+              "default": "100",
+              "unit": "%",
+              "min": 1,
+              "comment": "GT3's hidden output factor (disc cars: mostly 100-120),\nfitted with `gt3tool modcar` to the [reference] 0-60 and quarter mile"
+            },
+            {
+              "key": "layout",
+              "label": "Engine layout",
+              "default": "I4",
+              "suggestions": [
+                "I3",
+                "I4",
+                "I5",
+                "I6",
+                "V6",
+                "V8",
+                "V10",
+                "V12",
+                "H4",
+                "H6"
+              ],
+              "help": "e.g. I4, V6, V12 DOHC."
+            },
+            {
+              "key": "aspiration",
+              "label": "Aspiration",
+              "default": "NA",
+              "suggestions": [
+                "NA",
+                "TURBO"
+              ]
+            },
+            {
+              "key": "displacement",
+              "label": "Displacement",
+              "default": "1600cc",
+              "pattern": "\\d+(\\.\\d+)?cc",
+              "pattern_hint": "Write it like 1600cc."
+            },
+            {
+              "key": "sound_id",
+              "label": "Sound id",
+              "default": "",
+              "help": "Leave blank to use the donor's sound bank."
+            }
+          ]
+        },
+        {
+          "name": "drivetrain",
+          "title": "Drivetrain",
+          "parameters": [
+            {
+              "key": "drive",
+              "label": "Drive",
+              "default": "FF",
+              "suggestions": [
+                "FF",
+                "FR",
+                "MR",
+                "RR",
+                "4WD"
+              ],
+              "required": true
+            },
+            {
+              "key": "gears",
+              "label": "Gear ratios",
+              "type": "list",
+              "default": [
+                "3.25",
+                "1.95",
+                "1.35",
+                "1.03",
+                "0.82"
+              ],
+              "min_items": 1,
+              "min": 0.1,
+              "max": 20,
+              "help": "Space separated, 1st gear first."
+            },
+            {
+              "key": "final_drive",
+              "label": "Final drive",
+              "type": "float",
+              "default": "4.10",
+              "min": 0.5,
+              "max": 20
+            },
+            {
+              "key": "reverse",
+              "label": "Reverse ratio",
+              "type": "float",
+              "default": "3.40",
+              "min": 0.5,
+              "max": 20
+            }
+          ]
+        },
+        {
+          "name": "tires",
+          "title": "Tyres",
+          "parameters": [
+            {
+              "key": "front",
+              "label": "Front tyre",
+              "default": "195/65R15",
+              "pattern": "\\d{3}/\\d{2}R\\d{2}",
+              "pattern_hint": "Use a size like 205/55R16.",
+              "help": "e.g. 205/55R16. Wheels are drawn from this size."
+            },
+            {
+              "key": "rear",
+              "label": "Rear tyre",
+              "default": "195/65R15",
+              "pattern": "\\d{3}/\\d{2}R\\d{2}",
+              "pattern_hint": "Use a size like 205/55R16."
+            },
+            {
+              "key": "grip_pct",
+              "label": "Grip",
+              "type": "int",
+              "default": "88",
+              "unit": "%",
+              "min": 1,
+              "help": "Fit it to the [reference] skidpad with `gt3tool modcar`."
+            }
+          ]
+        },
+        {
+          "name": "model",
+          "title": "Model",
+          "emit_if": "file",
+          "parameters": [
+            {
+              "key": "file",
+              "label": "Model file",
+              "default": "models/{car.car.label}.glb",
+              "comment": "our own body: the wheels come from the engine",
+              "help": "Where your .glb body goes. {car.car.label} is filled in automatically. Clear it to use the donor's shell stretched to your body dimensions (the whole [model] section is then left out)."
+            },
+            {
+              "key": "wheel",
+              "label": "Wheel",
+              "default": "ma1031",
+              "comment": "a disc rim (browse them with gt3r --browse wheel/)",
+              "help": "A disc rim id, e.g. ma1031."
+            },
+            {
+              "key": "lower_mm",
+              "label": "Lower body",
+              "type": "int",
+              "default": "0",
+              "unit": "mm",
+              "comment": "fine-tune the body's height over the wheels if the arches look off"
+            }
+          ]
+        },
+        {
+          "name": "paints",
+          "title": "Paints",
+          "kind": "paints",
+          "paint_defaults": {
+            "Carmine Red": "#9B1B24",
+            "Pearl White": "#E7E5DF",
+            "Glacier Silver": "#B8BCC0",
+            "Graphite Grey": "#3B3E43",
+            "Midnight Blue": "#1D2A4B",
+            "Solar Yellow": "#E2B01C",
+            "British Racing Green": "#004225",
+            "Burnt Orange": "#CC5500",
+            "Hot Pink": "#FF1493",
+            "Black": "#111111"
+          },
+          "parameters": []
+        },
+        {
+          "name": "dealer",
+          "title": "Dealer",
+          "parameters": [
+            {
+              "key": "for_sale",
+              "label": "For sale",
+              "type": "bool",
+              "default": "yes"
+            },
+            {
+              "key": "description",
+              "label": "Description",
+              "default": "{mod.mod.description}",
+              "help": "Defaults to the mod's description."
+            },
+            {
+              "key": "picture",
+              "label": "Picture",
+              "default": "images/{car.car.label}.png",
+              "comment": "640x448, rendered with the game's car viewer (README.md \"Pictures\")",
+              "help": "640x448 picture. {car.car.label} is filled in automatically."
+            },
+            {
+              "key": "thumb",
+              "label": "Thumbnail",
+              "default": "images/{car.car.label}_thumb.png",
+              "comment": "51x27: the dealer's strip button and the arcade picker's icon",
+              "help": "51x27 thumbnail. {car.car.label} is filled in automatically."
+            },
+            {
+              "key": "logo",
+              "label": "Logo",
+              "default": "",
+              "help": "Optional. Without it the dealer writes the name in the menu font."
+            }
+          ]
+        },
+        {
+          "name": "arcade",
+          "title": "Arcade",
+          "parameters": [
+            {
+              "key": "class",
+              "label": "Class",
+              "default": "auto",
+              "suggestions": [
+                "auto"
+              ]
+            },
+            {
+              "key": "level",
+              "label": "Level",
+              "type": "int",
+              "default": "0",
+              "min": 0
+            }
+          ]
+        },
+        {
+          "name": "reference",
+          "title": "Reference targets",
+          "lead_notes": "Targets for the car's class (e.g. magazine tests).\nOnly `gt3tool modcar` reads these: it prints its own results next to them.",
+          "parameters": [
+            {
+              "key": "zero_to_60_s",
+              "label": "0-60 mph",
+              "type": "float",
+              "default": "9.0",
+              "unit": "s",
+              "min": 0.1
+            },
+            {
+              "key": "quarter_mile_s",
+              "label": "Quarter mile",
+              "type": "float",
+              "default": "16.5",
+              "unit": "s",
+              "min": 0.1
+            },
+            {
+              "key": "top_speed_kmh",
+              "label": "Top speed",
+              "type": "int",
+              "default": "190",
+              "unit": "km/h",
+              "min": 1
+            },
+            {
+              "key": "skidpad_g",
+              "label": "Skidpad",
+              "type": "float",
+              "default": "0.78",
+              "unit": "g",
+              "min": 0.1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
