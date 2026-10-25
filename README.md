@@ -3,6 +3,15 @@
 **iniEdit** is a Tkinter + Matplotlib tool that creates the `.ini` files of a GT3-revisited car mod
 from a form, in the same format as the reference mods (daihatsu_dumbo, weesan3, bx_break).
 
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+  [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
+  ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)
+  [![Gran Turismo 3](https://img.shields.io/badge/Gran%20Turismo-3-red?logo=playstation&logoColor=red)]()
+  [![Last commit](https://img.shields.io/github/last-commit/JeevesGB/iniEdit)](https://github.com/JeevesGB/GTExplorer/commits/main)
+
+
+***Download the latest release here:***   [![GitHub release](https://img.shields.io/github/v/release/JeevesGB/iniEdit)](https://github.com/JeevesGB/iniEdit/releases) 
+
 Run `requirements.bat` once, then `run.bat` (or `cd src && python main.py`).
 
 ## What it writes
