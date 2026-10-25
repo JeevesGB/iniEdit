@@ -1,6 +1,6 @@
 <img width="512" height="512" alt="ico" src="ico.png" />
 
-**iniEdit** is a Tkinter + Matplotlib tool that creates the `.ini` files of a GT3-revisited car mod
+**iniEdit** is a Tkinter + Matplotlib tool that creates the `.ini` files of a [GT3-revisited](https://github.com/matt-pulsipher/GT3-revisited) car mod
 from a form, in the same format as the reference mods (daihatsu_dumbo, weesan3, bx_break).
 
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
