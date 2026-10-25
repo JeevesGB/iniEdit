@@ -1,6 +1,6 @@
-# GT3 Mod Creator
+<img width="512" height="512" alt="ico" src="ico.png" />
 
-A Tkinter + Matplotlib tool that creates the `.ini` files of a GT3-revisited car mod
+**iniEdit** is a Tkinter + Matplotlib tool that creates the `.ini` files of a GT3-revisited car mod
 from a form, in the same format as the reference mods (daihatsu_dumbo, weesan3, bx_break).
 
 Run `requirements.bat` once, then `run.bat` (or `cd src && python main.py`).
