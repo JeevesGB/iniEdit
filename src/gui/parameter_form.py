@@ -3,9 +3,11 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable
 from core.schema import TRUE_WORDS, FileSpec, Parameter
+from gui.tooltip import ToolTip
 
 ERROR_FG = "#c0392b"
 HELP_FG = "#777777"
+ACTIVE_SCROLL: Callable | None = None     # set while the pointer is over a form; used by drop-downs
 
 
 class ParameterForm(ttk.Frame):
@@ -22,6 +24,8 @@ class ParameterForm(ttk.Frame):
         self.vars: dict[tuple[str, str], tk.Variable] = {}
         self.error_labels: dict[tuple[str, str], ttk.Label] = {}
         self._suspend = False
+        self.help_labels: list[ttk.Label] = []
+        self.show_help = True
         self._build()
 
     def get_values(self) -> dict[str, dict[str, str]]:
@@ -51,6 +55,11 @@ class ParameterForm(ttk.Frame):
             self._suspend = False
         self.validate_all()
 
+    def set_help_visible(self, visible: bool) -> None:
+        self.show_help = visible
+        for label in self.help_labels:
+            label.grid() if visible else label.grid_remove()
+
     def validate_all(self) -> int:
         count = 0
         for (section, key), var in self.vars.items():
@@ -74,11 +83,15 @@ class ParameterForm(ttk.Frame):
             canvas.yview_scroll(-1 if (event.num == 4 or event.delta > 0) else 1, "units")
 
         def bind_wheel(_e):
+            global ACTIVE_SCROLL
+            ACTIVE_SCROLL = wheel
             canvas.bind_all("<MouseWheel>", wheel)
             canvas.bind_all("<Button-4>", wheel)
             canvas.bind_all("<Button-5>", wheel)
 
         def unbind_wheel(_e):
+            global ACTIVE_SCROLL
+            ACTIVE_SCROLL = None
             for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
                 canvas.unbind_all(seq)
 
@@ -112,7 +125,8 @@ class ParameterForm(ttk.Frame):
     def _add_row(self, frame, r: int, section: str, param: Parameter) -> int:
         ident = (section, param.key)
         label = param.label + (" *" if param.required else "")
-        ttk.Label(frame, text=label).grid(row=r, column=0, sticky="w", padx=(0, 10), pady=(4, 0))
+        name_label = ttk.Label(frame, text=label)
+        name_label.grid(row=r, column=0, sticky="w", padx=(0, 10), pady=(4, 0))
 
         if param.type == "bool":
             var: tk.Variable = tk.BooleanVar(value=param.default_text() == "yes")
@@ -140,8 +154,13 @@ class ParameterForm(ttk.Frame):
         self.error_labels[ident] = err
         next_row = r + 2
         if param.help:
-            ttk.Label(frame, text=param.help, foreground=HELP_FG, wraplength=520).grid(
-                row=next_row, column=1, columnspan=2, sticky="w")
+            ToolTip(name_label, param.help)
+            ToolTip(widget, param.help)
+            hl = ttk.Label(frame, text=param.help, foreground=HELP_FG, wraplength=520)
+            hl.grid(row=next_row, column=1, columnspan=2, sticky="w")
+            if not self.show_help:
+                hl.grid_remove()
+            self.help_labels.append(hl)
             next_row += 1
 
         self.vars[ident] = var

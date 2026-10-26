@@ -4,6 +4,7 @@ from pathlib import Path, PurePosixPath
 from typing import Callable
 
 from . import curve as curve_mod
+from . import gearing
 from .discdata import DiscCars
 from .ini_model import IniDocument
 from .schema import FileSpec, Schema, slugify
@@ -85,6 +86,9 @@ class ModProject:
             points = curve_mod.parse_curve(car.get("powertrain", "curve"))
             if max_rpm.isdigit() and points and max(p[0] for p in points) > int(max_rpm):
                 issues.append(f"Car: [powertrain] curve goes past max_rpm ({max_rpm}).")
+            ratios = gearing.parse_gears(car.get("drivetrain", "gears"))
+            if gearing.issues(ratios):
+                issues.append("Car: [drivetrain] gears should get smaller from 1st gear upwards.")
         return issues
 
     def save(self, parent_dir: str | Path, comments: bool = True) -> list[Path]:

@@ -9,18 +9,21 @@ TAB_ICONS = {
     "maker": "maker",
     "car": "suspension",
     "curve": "curve",      
+    "gearbox": "gearbox",
     "paints": "paint",
     "preview": "align-left",
     "model_tools": "model_tools",   
 }
 SAVE_ICON = "save"
 
+SCALE = 1.0
 _cache: dict[tuple[str, int], object] = {}
 
 
 def load_icon(name: str, size: int = 18):
     if not name:
         return None
+    size = int(round(size * SCALE))
     key = (name, size)
     if key not in _cache:
         try:

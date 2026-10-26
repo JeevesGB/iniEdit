@@ -62,13 +62,38 @@ src/gui/app.py              main window, menus, file actions, problems list
 src/gui/start_dialog.py     start-up (new / edit / recent) and new-mod dialogs
 src/gui/guide.py            Help > Quick guide text
 src/gui/parameter_form.py   auto-built form for each file
-src/gui/curve_panel.py      torque curve editor + live plot
+src/gui/curve_panel.py      torque curve editor: draggable graph, table, undo/redo, tools, generator
+src/gui/gear_panel.py       gearbox editor: ratio table, speed / drive-force charts, presets, top-speed fit
+src/core/gearing.py         tyre radius, speed per gear, ratio generators and presets
 src/gui/paints_panel.py     [paints] list editor
 src/gui/preview_panel.py    live preview of each generated file
 src/core/modeltools.py      model / picture helpers (measure, finish, pictures, Blender runner)
 src/gui/model_panel.py      the Model tools tab
 src/tools/prepare.py        Blender script run by the Model tools tab (bundled by build.bat)
 ```
+
+## Torque curve tab
+
+- **On the graph:** drag a point to move it (Shift = vertical only), click empty space to add one, right-click a point to
+  remove it, arrow keys nudge the selected point. Moves snap to the *Snap to* values (default 100 rpm / 1 Nm).
+  Hover a point to see rpm, Nm and power.
+- **In the table:** double-click a number to edit it; Delete removes the selection; *Split segment* adds a point halfway.
+- **Undo / redo** (Ctrl+Z / Ctrl+Y, up to 100 steps) cover every change, including the tools below.
+- **Rev limiter and idle** from the car tab are drawn on the graph; *End at rev limiter* trims or extends the curve to it.
+- **Power** is shown on a second axis in kW, PS or hp.
+- **Tools:** scale torque by a %, move the whole curve in rpm, smooth, paste `rpm:Nm` text or two spreadsheet columns,
+  load/export (.txt, .ini, .csv), and **Generate from specs**: enter peak torque, peak power, idle and limiter and a
+  realistic curve through both peaks is built.
+
+## Gearbox tab
+
+Edits the same *Gear ratios*, *Final drive* and *Reverse* fields as the car tab (they stay in sync).
+
+- Table with ratio, step to the next gear, overall ratio, speed at the rev limiter and rpm after an upshift. Double-click a ratio to edit it.
+- **Build a gearbox:** generate N gears between a 1st and top ratio (even or closer at the top), or start from a preset.
+- **Top speed:** type a target speed and the final drive is calculated from the tyre size and top gear.
+- Charts: engine rpm vs road speed (with shift drops and peak power marked) and estimated drive force vs road speed.
+  Speeds use the driven tyres' rolling radius, so check the tyre sizes on the car tab. Force assumes 90 % drivetrain efficiency.
 
 ## Model tools tab
 

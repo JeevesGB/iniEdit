@@ -14,6 +14,10 @@ def load() -> dict:
         return {}
 
 
+def get(key: str, default=None):
+    return load().get(key, default)
+
+
 def update(**values) -> None:
     data = load()
     data.update(values)

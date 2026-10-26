@@ -13,21 +13,24 @@ JSON_CHUNK, BIN_CHUNK = 0x4E4F534A, 0x004E4942
 
 
 class ModelToolError(Exception):
-    def _read_glb(path: str | Path) -> tuple[dict, bytes]:
-        d = Path(path).read_bytes()
-        if d[:4] != b"glTF":
-            raise ModelToolError(f"{Path(path).name} is not a binary glTF (.glb) file.")
-        o, doc, binc = 12, None, b""
-        while o + 8 <= len(d):
-            ln, ty = struct.unpack_from("<II", d, o)
-            if ty == JSON_CHUNK:
-                doc = json.loads(d[o + 8:o + 8 + ln])
-            elif ty == BIN_CHUNK:
-                binc = d[o + 8:o + 8 + ln]
-            o += 8 + ((ln + 3) & ~3)
-        if doc is None:
-            raise ModelToolError("The .glb has no JSON chunk.")
-        return doc, binc
+    pass
+
+
+def _read_glb(path: str | Path) -> tuple[dict, bytes]:
+    d = Path(path).read_bytes()
+    if d[:4] != b"glTF":
+        raise ModelToolError(f"{Path(path).name} is not a binary glTF (.glb) file.")
+    o, doc, binc = 12, None, b""
+    while o + 8 <= len(d):
+        ln, ty = struct.unpack_from("<II", d, o)
+        if ty == JSON_CHUNK:
+            doc = json.loads(d[o + 8:o + 8 + ln])
+        elif ty == BIN_CHUNK:
+            binc = d[o + 8:o + 8 + ln]
+        o += 8 + ((ln + 3) & ~3)
+    if doc is None:
+        raise ModelToolError("The .glb has no JSON chunk.")
+    return doc, binc
 
 
 def measure_glb(path: str | Path) -> dict[str, float]:

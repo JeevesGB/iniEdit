@@ -7,6 +7,10 @@ try:
 except ImportError:
     raise SystemExit("Matplotlib is required.\nInstall it with: python -m pip install -r requirements.txt")
 
+from gui import theme
+
+theme.enable_dpi_awareness()      # must happen before the first window exists
+
 from gui.app import ModCreatorApp
 
 

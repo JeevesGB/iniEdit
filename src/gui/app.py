@@ -1,17 +1,21 @@
 from __future__ import annotations
 import os
+import re
 import subprocess
 import sys
 import tkinter as tk
+from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from core import settings
+from gui import icons as icons_mod, theme, tooltip
 from core.discdata import DiscCars
 from core.project import ModProject
 from core.schema import FileSpec, Schema, SchemaError, load_schema
 from gui.curve_panel import CurvePanel
 from gui.disc_browser import DiscBrowser
+from gui.gear_panel import GearPanel
 from gui.guide import GuideWindow
 from gui.model_panel import ModelPanel
 from gui.icons import SAVE_ICON, TAB_ICONS, load_icon
@@ -25,6 +29,35 @@ BASE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)
 DEFAULT_SCHEMA = BASE_DIR / "data" / "car_mod_schema.json"
 DISC_CARS = BASE_DIR / "data" / "cars.json"
 BANNER_BG, BANNER_FG = "#fff6d6", "#5a4a00"
+TIPS = {
+    # torque curve tab
+    "Apply  (Enter)": "Change the selected point to the values above (or add a point if none is selected).",
+    "Add as new point": "Add a point with the rpm and torque typed above.",
+    "Remove": "Remove the selected point(s) or gear.",
+    "Split segment": "Add a point halfway between the selected point and the next one.",
+    "Undo": "Undo the last change (Ctrl+Z).",
+    "Redo": "Redo (Ctrl+Y).",
+    "Scale": "Multiply every torque value by the percentage (105 = 5% more).",
+    "Shift": "Move every point up or down the rev range by this many rpm.",
+    "Smooth": "Average each point with its neighbours. The first and last points stay put.",
+    "Generate from specs\u2026": "Build a curve from peak torque, peak power, idle and rev limiter.",
+    "End at rev limiter": "Remove points past the rev limiter and end the curve exactly on it.",
+    "Paste": "Paste rpm:Nm text, or two spreadsheet columns, from the clipboard.",
+    "Load\u2026": "Load a curve from a .txt, .ini or .csv file.",
+    "Export\u2026": "Save the curve as .txt, .ini or .csv.",
+    "Copy": "Copy this to the clipboard.",
+    "Reset": "Go back to the default curve.",
+    "Show power": "Draw the power curve on a second axis.",
+    # gearbox tab
+    "Add gear": "Add another gear below the last one.",
+    "Sort 1st \u2192 top": "Order the ratios from largest (1st) to smallest (top).",
+    "Generate gears": "Make this many gears between the 1st and top ratio.",
+    "Set final drive": "Work out the final drive that gives the top speed at the chosen rpm.",
+}
+TOOLBAR_TIPS = {
+    "Save": "Save the mod's .ini files (Ctrl+S).",
+    "Open folder": "Show the mod folder in the file browser.",
+}
 TIPS_TEXT = ("Getting started:  1) fill in the Mod and Car tabs (* = required)   "
              "2) add your 3D model under Model tools   3) press Save, and check the Preview tab.")
 
@@ -32,9 +65,16 @@ TIPS_TEXT = ("Getting started:  1) fill in the Mod and Car tabs (* = required)  
 class ModCreatorApp(tk.Tk):
     def __init__(self, schema_path: Path = DEFAULT_SCHEMA):
         super().__init__()
+        theme.init_scale(self)
+        icons_mod.SCALE = theme.SCALE
+        self.theme_var = tk.StringVar(value=settings.get("theme", "xp") if settings.get("theme", "xp") in theme.THEMES else "xp")
+        theme.apply(self, self.theme_var.get())
         self._set_window_icon()
-        self.geometry("1200x800")
-        self.minsize(980, 640)
+        self.geometry(f"{theme.px(1200)}x{theme.px(800)}")
+        self.minsize(theme.px(980), theme.px(640))
+        self.help_var = tk.BooleanVar(value=bool(settings.get("show_help", True)))
+        self.saved_var = tk.StringVar(value="Not saved yet")
+        self.last_saved: str | None = None
         self.status_var = tk.StringVar(value="Ready")
         self.mod_id_var = tk.StringVar(value="my_car_mod")
         self.comments_var = tk.BooleanVar(value=True)
@@ -47,6 +87,7 @@ class ModCreatorApp(tk.Tk):
         self.notebook: ttk.Notebook | None = None
         self.forms: dict[str, ParameterForm] = {}
         self.curve_panels: dict[tuple[str, str, str], CurvePanel] = {}
+        self.gear_panels: dict[str, GearPanel] = {}
         self.paint_panels: dict[tuple[str, str], PaintsPanel] = {}
         self.include_vars: dict[str, tk.BooleanVar] = {}
         self.maker_hints: dict[str, ttk.Label] = {}
@@ -85,19 +126,27 @@ class ModCreatorApp(tk.Tk):
             self.banner.grid_remove()
         self.mod_id_var.trace_add("write", lambda *_: self._changed())
         self.comments_var.trace_add("write", lambda *_: self._refresh_preview())
-        ttk.Label(self, textvariable=self.status_var, anchor="w", relief="sunken", padding=(8, 4)).grid(
-            row=4, column=0, sticky="ew")
+        status = ttk.Frame(self)
+        status.grid(row=4, column=0, sticky="ew")
+        status.columnconfigure(0, weight=1)
+        ttk.Label(status, textvariable=self.status_var, anchor="w", relief="sunken", padding=(8, 4)).grid(
+            row=0, column=0, sticky="ew")
+        ttk.Label(status, textvariable=self.saved_var, anchor="e", relief="sunken", padding=(10, 4), width=24).grid(
+            row=0, column=1, sticky="ew")
         self._build_menu()
         self.protocol("WM_DELETE_WINDOW", self.on_exit)
         for seq, cmd in (("<F1>", self.show_guide), ("<Control-n>", self.new_mod), ("<Control-o>", self.open_mod),
                          ("<Control-s>", self.save_mod), ("<Control-S>", self.save_mod_as)):
             self.bind(seq, lambda _e, c=cmd: c())
 
+        tooltip.attach_by_text(self, TOOLBAR_TIPS)
+        tooltip.attach(self.problems_btn, "List everything that needs attention. Double-click an item to jump to it.")
         try:
             self._build_ui(load_schema(schema_path))
         except SchemaError as exc:
             messagebox.showerror("Schema error", str(exc))
             raise SystemExit(1) from exc
+        self._restore_window()
         self.after(150, self._startup_prompt)     
 
     def _startup_prompt(self):
@@ -137,6 +186,12 @@ class ModCreatorApp(tk.Tk):
         o = tk.Menu(bar, tearoff=False)
         o.add_checkbutton(label="Write explanatory comments", variable=self.comments_var)
         o.add_separator()
+        o.add_checkbutton(label="Show help text under fields", variable=self.help_var, command=self._toggle_help)
+        t = tk.Menu(o, tearoff=False)
+        for key, label in theme.THEMES.items():
+            t.add_radiobutton(label=label, value=key, variable=self.theme_var, command=self._set_theme)
+        o.add_cascade(label="Theme", menu=t)
+        o.add_separator()
         o.add_command(label="Load parameter schema…", command=self.choose_schema)
         o.add_command(label="Reset to built-in schema", command=lambda: self._switch_schema(DEFAULT_SCHEMA))
         bar.add_cascade(label="Options", menu=o)
@@ -152,6 +207,7 @@ class ModCreatorApp(tk.Tk):
         if self.notebook is not None:
             self.notebook.destroy()
         self.forms.clear(), self.curve_panels.clear(), self.paint_panels.clear(), self.include_vars.clear()
+        self.gear_panels.clear()
         self.maker_hints.clear(), self.form_pages.clear(), self.tab_base.clear()
         self.notebook = ttk.Notebook(self)
         self.notebook.grid(row=3, column=0, sticky="nsew", padx=8, pady=8)
@@ -188,6 +244,9 @@ class ModCreatorApp(tk.Tk):
                         panel = CurvePanel(self.notebook, param, on_change=self._changed)
                         self.curve_panels[(spec.id, sec.name, param.key)] = panel
                         self._add_tab(panel, param.label, TAB_ICONS.get(param.type, ""))
+                        self._link_powertrain(spec.id, panel)
+        for form in self.forms.values():
+            form.set_help_visible(self.help_var.get())
         self.model_panel = ModelPanel(self.notebook, self, BASE_DIR / "tools" / "prepare.py")
         self._add_tab(self.model_panel, "Model tools", TAB_ICONS["model_tools"])
         self.preview = PreviewPanel(self.notebook, {s.id: f"{s.id}.ini" for s in schema.files})
@@ -195,8 +254,40 @@ class ModCreatorApp(tk.Tk):
         self._building = False
         self._apply_project(ModProject(schema, self.disc))
         self.dirty, self.extras = False, {}
+        tooltip.attach_by_text(self.notebook, TIPS)
+        theme.restyle_canvases(self.notebook)
         self._update_title()
         self.status_var.set(f"Schema: {schema.name}")
+
+    def _link_powertrain(self, file_id: str, curve_panel: CurvePanel):
+        """Feed the rev limiter / idle to the curve editor and add the gearbox tab beside it."""
+        form = self.forms.get(file_id)
+        if form is None:
+            return
+        limit, idle = form.vars.get(("powertrain", "max_rpm")), form.vars.get(("powertrain", "idle_rpm"))
+
+        def push(*_):
+            def num(var):
+                text = str(var.get()).strip() if var is not None else ""
+                return int(text) if text.isdigit() and int(text) > 0 else None
+            curve_panel.set_limits(num(limit), num(idle))
+
+        for var in (limit, idle):
+            if var is not None:
+                var.trace_add("write", push)
+        push()
+        if all(key in form.vars for key in GearPanel.NEEDED):
+            gears = GearPanel(self.notebook, form, get_curve=lambda: list(curve_panel.points))
+            self.gear_panels[file_id] = gears
+            self._add_tab(gears, "Gearbox", TAB_ICONS["gearbox"])
+            curve_panel.on_change = self._curve_changed(curve_panel.on_change, gears)
+
+    @staticmethod
+    def _curve_changed(original, gears: GearPanel):
+        def changed():
+            original()
+            gears.schedule_refresh()
+        return changed
 
     def _add_tab(self, widget, title: str, icon: str = ""):
         self.tab_base[str(widget)] = title.lower()
@@ -344,6 +435,8 @@ class ModCreatorApp(tk.Tk):
             for (fid, section), panel in self.paint_panels.items():
                 if fid == spec.id and rest.startswith(f"[{section}]"):
                     return panel
+            if spec.id in self.gear_panels and any(f"[drivetrain] {k}" in rest for k in ("gears", "final_drive", "reverse")):
+                return self.gear_panels[spec.id]
             return self.form_pages.get(spec.id)
         return None
 
@@ -424,6 +517,10 @@ class ModCreatorApp(tk.Tk):
 
     def _update_title(self):
         self.title(f"{'*' if self.dirty else ''}{self.mod_id_var.get() or 'Untitled'} — {APP_NAME}")
+        if self.dirty:
+            self.saved_var.set("\u25cf Unsaved changes")
+        else:
+            self.saved_var.set(f"\u2714 Saved at {self.last_saved}" if self.last_saved else "Not saved yet")
         self._update_location()
 
     def _confirm_discard(self) -> bool:
@@ -549,6 +646,7 @@ class ModCreatorApp(tk.Tk):
             messagebox.showerror("Save failed", str(exc))
             return False
         self.parent_dir, self.dirty = parent, False
+        self.last_saved = datetime.now().strftime("%H:%M")
         self._update_title()
         settings.add_recent(target)
         self.status_var.set(f"Saved {len(written)} file(s) to {target}")
@@ -561,6 +659,52 @@ class ModCreatorApp(tk.Tk):
                                    "The game may load them as extra cars/makers; delete them if they're old.")
         return True
 
+    def _toggle_help(self):
+        settings.update(show_help=bool(self.help_var.get()))
+        for form in self.forms.values():
+            form.set_help_visible(self.help_var.get())
+
+    def _set_theme(self):
+        name = self.theme_var.get()
+        settings.update(theme=name)
+        theme.apply(self, name)
+        theme.restyle_canvases(self)
+        theme.restyle_figures(*self.curve_panels.values(), *self.gear_panels.values())
+        self.status_var.set(f"Theme: {theme.THEMES[name]}. Some widgets finish updating when you next restart.")
+
+    def _save_window_state(self):
+        try:
+            tab = self.notebook.select()
+            settings.update(geometry=self.geometry() if self.state() != "zoomed" else settings.get("geometry", ""),
+                            zoomed=self.state() == "zoomed", last_tab=self.tab_base.get(tab, ""))
+        except tk.TclError:
+            pass
+
+    def _restore_window(self):
+        match = re.fullmatch(r"(\d+)x(\d+)(?:([+-]\d+)([+-]\d+))?", str(settings.get("geometry", "")))
+        if match:
+            w, h = int(match[1]), int(match[2])
+            w, h = min(w, self.winfo_screenwidth()), min(h, self.winfo_screenheight())
+            geo = f"{max(w, theme.px(980))}x{max(h, theme.px(640))}"
+            if match[3] and match[4]:
+                x, y = int(match[3]), int(match[4])
+                if -20 <= x <= self.winfo_screenwidth() - 120 and 0 <= y <= self.winfo_screenheight() - 120:
+                    geo += f"{x:+d}{y:+d}"
+            self.geometry(geo)
+        if settings.get("zoomed"):
+            try:
+                self.state("zoomed")
+            except tk.TclError:
+                pass
+        wanted = settings.get("last_tab", "")
+        for path, base in self.tab_base.items():
+            if wanted and base == wanted and path != str(getattr(self, "preview", "")):
+                try:
+                    self.notebook.select(path)
+                except tk.TclError:
+                    pass
+
     def on_exit(self):
         if self._confirm_discard():
+            self._save_window_state()
             self.destroy()

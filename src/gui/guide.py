@@ -13,10 +13,13 @@ GUIDE = [
     ("b", "2. Mod tab: the mod's name, author and version."),
     ("b", "3. Car tab: who the car is (label, name, maker, donor), then its size, engine, gearbox and tyres. "
           "Fields marked * must be filled in. Anything you leave blank is borrowed from the donor car."),
-    ("b", "4. Torque curve tab: the engine's power curve (rpm and Nm points). The graph updates as you edit."),
-    ("b", "5. Paints tab (optional): the colours offered in the garage."),
-    ("b", "6. Model tools tab: add your .glb body, fill in its measured sizes, and make the dealer pictures."),
-    ("b", "7. Preview tab: check the finished files, then press Save (Ctrl+S)."),
+    ("b", "4. Torque curve tab: drag the points on the graph (click empty space to add one, right-click to remove, "
+          "Ctrl+Z to undo), or use \u201cGenerate from specs\u201d to start from the peak torque and power on a spec sheet."),
+    ("b", "5. Gearbox tab: edit the gear ratios in the table, pick a preset or generate a set, and set the final drive "
+          "for the top speed you want. The charts show speed and pulling force in every gear."),
+    ("b", "6. Paints tab (optional): the colours offered in the garage."),
+    ("b", "7. Model tools tab: add your .glb body, fill in its measured sizes, and make the dealer pictures."),
+    ("b", "8. Preview tab: check the finished files, then press Save (Ctrl+S)."),
     ("h", "Words you will see"),
     ("b", "Mod folder name (id): the folder's name. Use a-z, 0-9 and _ only. It identifies the mod."),
     ("b", "Label: the car's unique id. The car's .ini file is named after it. Never change it once the "
