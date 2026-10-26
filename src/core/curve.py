@@ -2,9 +2,7 @@ from __future__ import annotations
 import re
 
 Point = tuple[int, float]
-
 DEFAULT_MAX_POINTS = 16
-
 _PAIR_RE = re.compile(r"(\d+)\s*:\s*(-?(?:\d+(?:\.\d*)?|\.\d+))")
 
 
@@ -56,7 +54,6 @@ def kw_to_ps(kw: float) -> float:
     return kw * 1.3596216
 
 
-# ---------------------------------------------------------------- editing helpers
 KW_PER_HP = 0.745699872
 POWER_UNITS = ("kW", "PS", "hp")
 
@@ -76,7 +73,6 @@ def torque_for_power(unit: str, rpm: float, power: float) -> float:
 
 
 def peak_power(points: list[Point]) -> tuple[int, float] | None:
-    """(rpm, kW) of the highest-power point."""
     if not points:
         return None
     rpm, nm = max(points, key=lambda p: p[0] * p[1])
@@ -84,7 +80,6 @@ def peak_power(points: list[Point]) -> tuple[int, float] | None:
 
 
 def interpolate(points: list[Point], rpm: float) -> float:
-    """Linear torque at `rpm` (clamped to the first/last point)."""
     pts = sorted(points)
     if not pts:
         return 0.0
@@ -108,7 +103,6 @@ def shift_rpm(points: list[Point], delta: int) -> list[Point]:
 
 
 def smooth(points: list[Point], passes: int = 1) -> list[Point]:
-    """Moving average of the torque, end points kept where they are."""
     pts = sorted(points)
     for _ in range(passes):
         if len(pts) < 3:
@@ -119,7 +113,6 @@ def smooth(points: list[Point], passes: int = 1) -> list[Point]:
 
 
 def fit_to_limit(points: list[Point], limit: int, max_points: int = DEFAULT_MAX_POINTS) -> list[Point]:
-    """Drop points past `limit` and end the curve exactly on it."""
     pts = sorted(points)
     if not pts:
         return pts
@@ -136,7 +129,6 @@ def fit_to_limit(points: list[Point], limit: int, max_points: int = DEFAULT_MAX_
 
 
 def parse_loose(text: str) -> list[Point]:
-    """Reads 'rpm:Nm' pairs, or pasted spreadsheet / CSV rows such as '3000<tab>145'."""
     pairs = parse_curve(text)
     if pairs:
         return pairs
@@ -154,11 +146,6 @@ def parse_loose(text: str) -> list[Point]:
 
 def generate(peak_nm: float, peak_nm_rpm: int, peak_kw: float, peak_kw_rpm: int,
              idle: int, redline: int, max_points: int = DEFAULT_MAX_POINTS) -> list[Point]:
-    """A believable curve through the two figures every spec sheet quotes.
-
-    Torque rises from ~55 % at idle to its peak, eases down to the value that gives the
-    quoted power at the power peak, then falls so that power drops gently up to the limiter.
-    """
     if not (0 < idle < peak_nm_rpm <= peak_kw_rpm <= redline):
         raise ValueError("Needs idle < torque peak rpm <= power peak rpm <= rev limiter.")
     t_pow = peak_kw * 9549.2966 / peak_kw_rpm

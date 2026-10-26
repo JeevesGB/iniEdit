@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import json
 import re
 from dataclasses import dataclass
@@ -38,7 +37,6 @@ class DiscCars:
         for c in self.cars:
             if c.maker.strip() not in ("", "-"):
                 seen.setdefault(_norm(c.maker), c.maker)
-        # names garbled by an earlier export (e.g. "Citro??n") stay out of the suggestions
         self.makers = sorted((m for m in seen.values() if "?" not in m), key=str.lower)
         self._maker_keys = set(seen)
 

@@ -7,7 +7,6 @@ import tkinter as tk
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
-
 from core import settings
 from gui import icons as icons_mod, theme, tooltip
 from core.discdata import DiscCars
@@ -260,7 +259,6 @@ class ModCreatorApp(tk.Tk):
         self.status_var.set(f"Schema: {schema.name}")
 
     def _link_powertrain(self, file_id: str, curve_panel: CurvePanel):
-        """Feed the rev limiter / idle to the curve editor and add the gearbox tab beside it."""
         form = self.forms.get(file_id)
         if form is None:
             return

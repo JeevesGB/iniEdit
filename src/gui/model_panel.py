@@ -17,7 +17,6 @@ BODY_LABELS = {"length_mm": "length", "width_mm": "width", "height_mm": "height"
                "wheelbase_mm": "wheelbase", "front_track_mm": "front track", "rear_track_mm": "rear track"}
 HINT_FG = "#666666"
 
-
 class ModelPanel(ttk.Frame):
     def __init__(self, master, app, prepare_script: Path):
         super().__init__(master, padding=12)

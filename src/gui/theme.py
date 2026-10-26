@@ -1,16 +1,13 @@
-"""Look and feel: a Windows XP "Luna" style for ttk, DPI awareness, and scaling helpers."""
 from __future__ import annotations
 import sys
 import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import ttk
-
 import matplotlib
 
 THEMES = {"xp": "Windows XP (Luna)", "system": "System default"}
 SCALE = 1.0
-
-BG = "#ECE9D8"          # the classic beige window colour
+BG = "#ECE9D8"          
 FACE = "#F4F3EE"
 BLUE, BLUE_DARK, ORANGE = "#316AC5", "#003C74", "#F8B330"
 FIELD_BORDER, GROUP_BORDER, GROUP_TITLE = "#7F9DB9", "#D0D0BF", "#0046D5"
@@ -18,7 +15,6 @@ _original: dict = {}
 
 
 def enable_dpi_awareness() -> None:
-    """Call before the first Tk window is created (Windows only)."""
     if sys.platform != "win32":
         return
     try:
@@ -160,7 +156,6 @@ def apply(root: tk.Tk, name: str) -> None:
 
 
 def restyle_figures(*panels) -> None:
-    """Make already-created matplotlib figures follow the current theme."""
     colour = matplotlib.rcParams["figure.facecolor"]
     for panel in panels:
         fig = getattr(panel, "figure", None)
@@ -170,7 +165,6 @@ def restyle_figures(*panels) -> None:
 
 
 def restyle_canvases(widget) -> None:
-    """Plain tk Canvases (scrolling forms) don't follow ttk styles; recolour them."""
     colour = ttk.Style(widget).lookup("TFrame", "background") or BG
     stack = [widget]
     while stack:
@@ -185,7 +179,6 @@ def restyle_canvases(widget) -> None:
 
 
 def _install_wheel_guard(root) -> None:
-    """Scrolling the wheel over a drop-down must scroll the form, not silently change its value."""
     def guard(event):
         from gui import parameter_form
         scroll = parameter_form.ACTIVE_SCROLL
@@ -197,7 +190,6 @@ def _install_wheel_guard(root) -> None:
 
 
 def paint_toolbar(toolbar) -> None:
-    """The matplotlib toolbar is made of plain tk widgets; match them to the window colour."""
     colour = matplotlib.rcParams["figure.facecolor"]
     for w in [toolbar, *toolbar.winfo_children()]:
         try:

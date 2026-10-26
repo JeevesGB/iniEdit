@@ -3,7 +3,6 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-
 from . import curve as curve_mod
 
 TYPES = ("string", "int", "float", "bool", "choice", "list", "curve")

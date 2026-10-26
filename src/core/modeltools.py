@@ -11,10 +11,8 @@ from typing import Callable
 
 JSON_CHUNK, BIN_CHUNK = 0x4E4F534A, 0x004E4942
 
-
 class ModelToolError(Exception):
     pass
-
 
 def _read_glb(path: str | Path) -> tuple[dict, bytes]:
     d = Path(path).read_bytes()

@@ -43,7 +43,6 @@ class CurvePanel(ttk.Frame):
         self._build()
         self.set_text(param.default_text(), notify=False)
 
-    # ------------------------------------------------------------------ public API
     def get_text(self) -> str:
         return curve_mod.format_curve(self.points)
 
@@ -54,13 +53,11 @@ class CurvePanel(ttk.Frame):
         self._refresh_all(notify=notify)
 
     def set_limits(self, max_rpm: int | None, idle_rpm: int | None) -> None:
-        """Called by the app when the rev limiter / idle fields change."""
         if (max_rpm, idle_rpm) == (self.max_rpm, self.idle_rpm):
             return
         self.max_rpm, self.idle_rpm = max_rpm, idle_rpm
         self._refresh_all(notify=False)
 
-    # ------------------------------------------------------------------ layout
     def _build(self):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
@@ -210,7 +207,6 @@ class CurvePanel(ttk.Frame):
         widget.bind("<Control-y>", lambda _e: (self.redo(), "break")[1])
         widget.bind("<Control-Z>", lambda _e: (self.redo(), "break")[1])
 
-    # ------------------------------------------------------------------ helpers
     def _say(self, text: str = "", error: bool = False):
         self.hint_var.set(text or HINT)
         self.hint_label.configure(foreground=ERROR_FG if error else HINT_FG)
@@ -232,7 +228,6 @@ class CurvePanel(ttk.Frame):
 
     def _commit(self, new_points: list[curve_mod.Point], select: list[curve_mod.Point] | None = None,
                 push: bool = True):
-        """Replace the curve (undoable). `select` = points to leave selected afterwards."""
         if push:
             self._push_undo()
         self.points = sorted(new_points, key=lambda p: p[0])
@@ -261,7 +256,6 @@ class CurvePanel(ttk.Frame):
             return False
         return True
 
-    # ------------------------------------------------------------------ editing through the form
     def _read_entry(self) -> curve_mod.Point | None:
         try:
             x = int(round(float(self.x_var.get().strip().replace(",", ""))))
@@ -274,7 +268,6 @@ class CurvePanel(ttk.Frame):
             return None
 
     def apply_entry(self):
-        """Enter in the boxes: change the selected point, or add one if nothing is selected."""
         point = self._read_entry()
         if point is None:
             return
@@ -348,7 +341,6 @@ class CurvePanel(ttk.Frame):
             self._commit(pts, select=moved)
         return "break"
 
-    # ------------------------------------------------------------------ tools
     def do_scale(self):
         try:
             percent = float(self.scale_var.get().replace(",", "."))
@@ -416,7 +408,6 @@ class CurvePanel(ttk.Frame):
         self._commit(points)
         self._say(f"Generated {len(points)} points. Fine-tune them on the graph (Undo restores the old curve).")
 
-    # ------------------------------------------------------------------ table interaction
     def _on_select(self, _event=None):
         if self._selecting:
             return
@@ -473,7 +464,6 @@ class CurvePanel(ttk.Frame):
         pts[index] = new
         self._commit(pts, select=[new])
 
-    # ------------------------------------------------------------------ mouse on the graph
     def _display(self, point: curve_mod.Point) -> tuple[float, float]:
         return self.ax.transData.transform(point)
 
@@ -560,7 +550,7 @@ class CurvePanel(ttk.Frame):
             return
         i, self._drag, self._drag_ylim = self._drag, None, None
         self._set_cursor("")
-        if self._undo and self._undo[-1] == self.points:      # a click that changed nothing
+        if self._undo and self._undo[-1] == self.points:    
             self._undo.pop()
         self._refresh_all(select=[i])
         self._say()
@@ -604,7 +594,6 @@ class CurvePanel(ttk.Frame):
         finally:
             self._selecting = False
 
-    # ------------------------------------------------------------------ drawing
     def _row_values(self, x, y):
         return (x, f"{y:g}", f"{curve_mod.power_in(self.unit_var.get(), x, y):.1f}")
 
@@ -717,7 +706,6 @@ class CurvePanel(ttk.Frame):
         self.figure.set_layout_engine("constrained")
         self.canvas.draw_idle()
 
-    # ------------------------------------------------------------------ files and clipboard
     def copy_curve(self):
         if not self.points:
             self._say("Add at least one point before copying.", error=True)
@@ -766,7 +754,6 @@ class CurvePanel(ttk.Frame):
 
 
 class GeneratorDialog(tk.Toplevel):
-    """Builds a curve from the figures printed on a spec sheet."""
 
     def __init__(self, master, panel: CurvePanel):
         super().__init__(master)

@@ -1,9 +1,7 @@
-"""Small hover tooltips in the classic pale-yellow style."""
 from __future__ import annotations
 import tkinter as tk
 
 DELAY_MS = 550
-
 
 class ToolTip:
     def __init__(self, widget, text: str, wrap: int = 320):
@@ -49,13 +47,10 @@ class ToolTip:
                 pass
             self._tip = None
 
-
 def attach(widget, text: str) -> ToolTip:
     return ToolTip(widget, text)
 
-
 def attach_by_text(root, tips: dict[str, str]) -> None:
-    """Give a tooltip to every descendant of `root` whose label text is a key of `tips`."""
     stack = [root]
     while stack:
         w = stack.pop()

@@ -1,13 +1,10 @@
-"""Gearbox maths: tyre size -> speed per gear, ratio generators, presets."""
 from __future__ import annotations
 import math
 import re
-
 from . import curve as curve_mod
 
 _TYRE_RE = re.compile(r"\s*(\d{3})/(\d{2})R(\d{2})\s*$")
 DRIVETRAIN_EFFICIENCY = 0.90          # only used for the drive-force chart (an estimate)
-
 PRESETS: dict[str, tuple[list[float], float, float]] = {
     # name: (gears, final drive, reverse)
     "4-speed economy": ([3.45, 1.95, 1.28, 0.92], 3.90, 3.10),
@@ -24,7 +21,6 @@ SPACINGS = {
 
 
 def tyre_radius_m(size: str) -> float | None:
-    """Rolling radius in metres of a '205/55R16' tyre (about 2 % under the unloaded radius)."""
     m = _TYRE_RE.fullmatch(size or "")
     if not m:
         return None
@@ -57,7 +53,6 @@ def parse_gears(text: str) -> list[float]:
 
 
 def fmt_ratio(value: float) -> str:
-    """3.25 -> '3.25', 1.0 -> '1.00', 0.825 -> '0.825' (at least two decimals, no clutter)."""
     text = f"{value:.3f}"
     return text[:-1] if text.endswith("0") else text
 
@@ -67,7 +62,6 @@ def format_gears(gears: list[float]) -> str:
 
 
 def generate_gears(count: int, first: float, top: float, spacing: float = 0.85) -> list[float]:
-    """`count` ratios from `first` down to `top`; spacing < 1 packs the steps closer at the top."""
     if count < 1:
         return []
     if count == 1:
@@ -76,7 +70,6 @@ def generate_gears(count: int, first: float, top: float, spacing: float = 0.85) 
 
 
 def final_drive_for_top_speed(speed: float, rpm: float, top_gear: float, radius_m: float) -> float:
-    """Final drive that puts `rpm` in the top gear at `speed` km/h."""
     return rpm * 2 * math.pi * radius_m / 60.0 * 3.6 / (speed * top_gear)
 
 
@@ -89,7 +82,6 @@ def issues(gears: list[float]) -> list[str]:
 
 def tractive_curve(points: list[curve_mod.Point], gear: float, final_drive: float, radius_m: float,
                    lo: int, hi: int, steps: int = 60) -> tuple[list[float], list[float]]:
-    """(speed km/h, drive force N) between `lo` and `hi` rpm for one gear."""
     xs, ys = [], []
     for i in range(steps + 1):
         rpm = lo + (hi - lo) * i / steps

@@ -1,6 +1,4 @@
-
 from __future__ import annotations
-
 from pathlib import Path
 
 ICON_DIR = Path(__file__).resolve().parent / "icons"

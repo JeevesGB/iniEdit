@@ -2,7 +2,6 @@ from __future__ import annotations
 import re
 from pathlib import Path, PurePosixPath
 from typing import Callable
-
 from . import curve as curve_mod
 from . import gearing
 from .discdata import DiscCars

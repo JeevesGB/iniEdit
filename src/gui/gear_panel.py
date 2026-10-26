@@ -15,8 +15,6 @@ TOP_SPEED_AT = ("Rev limiter", "Peak power")
 
 
 class GearPanel(ttk.Frame):
-    """Gearbox editor. It edits the same fields as the car tab (the variables are shared),
-    so either place can be used and they never disagree."""
 
     NEEDED = (("drivetrain", "gears"), ("drivetrain", "final_drive"), ("drivetrain", "reverse"))
 
@@ -47,7 +45,6 @@ class GearPanel(ttk.Frame):
             var.trace_add("write", lambda *_: self.schedule_refresh())
         self.bind("<Map>", lambda _e: self.schedule_refresh(0))
 
-    # ------------------------------------------------------------------ data
     def _gears(self) -> list[float]:
         return gearing.parse_gears(self.gears_var.get())
 
@@ -78,7 +75,6 @@ class GearPanel(ttk.Frame):
         pts = self.get_curve()
         return max(pts, key=lambda p: p[0] * p[1])[0] if pts else None
 
-    # ------------------------------------------------------------------ layout
     def _build(self):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
@@ -176,7 +172,6 @@ class GearPanel(ttk.Frame):
         self.msg_var.set(text)
         self.msg.configure(foreground=ERROR_FG if error else HINT_FG)
 
-    # ------------------------------------------------------------------ actions
     def add_gear(self):
         gears = self._gears()
         new = round(gears[-1] * 0.85, 2) if gears else 3.5
@@ -248,7 +243,6 @@ class GearPanel(ttk.Frame):
         self.final_var.set(f"{final:.2f}")
         self._say(f"Final drive set to {final:.2f}: {speed:g} km/h in top gear at {rpm:,} rpm.")
 
-    # ------------------------------------------------------------------ inline editing
     def _begin_edit(self, event):
         row, col = self.table.identify_row(event.y), self.table.identify_column(event.x)
         gears = self._gears()
@@ -288,7 +282,6 @@ class GearPanel(ttk.Frame):
             gears[self._row] = value
             self._set_gears(gears)
 
-    # ------------------------------------------------------------------ refresh
     def schedule_refresh(self, delay: int = 120):
         self._dirty = True
         if self._after is not None:
