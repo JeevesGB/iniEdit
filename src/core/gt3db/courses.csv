@@ -1,0 +1,137 @@
+label,name,surface
+rome,Rome Circuit,0
+test,,0
+test2,,0
+test3,,0
+round,,0
+super,Super Speedway,0
+route5,Special Stage Route 5 Wet,1
+laguna,Laguna Seca Raceway,0
+r_rome,Rome Circuit II,0
+r_test,,0
+L_rome1,Rome Test Section,0
+route11,Special Stage Route 11,0
+akasaka,Tokyo R246,0
+apricot,Apricot Hill Raceway,0
+seattle,Seattle Circuit,0
+r_round,,0
+trialmt,Trial Mountain Circuit,0
+render_r_tahitidirt,Tahiti Circuit II,2
+render_r_tahitimaze,Tahiti Maze II,2
+render_r_tahitiroad,,0
+render_r_deepforest,,0
+render_r_deepforest,Deep Forest Raceway II,0
+render_r_route5_dry,,0
+r_route5,Special Stage Route 5 II Wet,1
+midfield,Midfield Raceway,0
+L_laguna1,Laguna Seca Test Section,0
+L_akasaka1,Tokyo R246 Test Section,0
+L_akasaka2,Tokyo R246 Test Section,0
+L_apricot1,Apricot Hill Test Section,0
+L_apricot2,Apricot Hill Raceway,0
+r_midfield,Midfield Raceway II,0
+L_seattle1,Seattle Test Section,0
+L_seattle2,Seattle Test Section,0
+L_seattle3,Seattle Test Section,0
+r_smtnorth,Smokey Mountain II,2
+r_smtsouth,Swiss Alps II,2
+render_midfield,,0
+L_trialmt1,Trial Mountain Test Section,0
+L_trialmt2,Trial Mountain Test,0
+render_r_route5,Special Stage Route 5 II,1
+render_smtnorth,,2
+render_smtsouth,,2
+tahitidirt,Tahiti Circuit,2
+tahitimaze,Tahiti Maze,2
+tahitiroad,,0
+r_tahitidirt,Tahiti Circuit II,2
+r_tahitimaze,Tahiti Maze II,2
+r_tahitiroad,,0
+grandvalley,Grand Valley Speedway,0
+r_grandvalley,Grand Valley Speedway II,0
+render_round,,0
+render_super,,0
+L_grandvalley2a,Grand Valley Test Section,0
+L_grandvalley2b,Grand Valley Test Section,0
+deepforest,Deep Forest Raceway,0
+r_deepforest,Deep Forest Raceway II,0
+render_laguna,,0
+render_r_rome,Rome Circuit II,0
+render_route5,,1
+render_r_test,,0
+testcourse,Test Course,0
+L_circle100_dry1,Circle 100R,0
+L_circle100_wet1,Circle 100R Wet,1
+route5_dry,Special Stage Route 5,0
+r_route5_dry,Special Stage Route 5 II,0
+r_akasaka,Tokyo R246 II,0
+r_route11,Special Stage Route 11 II,0
+r_trialmt,Trial Mountain Circuit II,0
+slalom80r,Complex String,0
+render_montecarlo,,0
+smtnorth,Smokey Mountain,2
+smtsouth,Swiss Alps,2
+render_grandvalley,,0
+render_r_slalom80r,Complex String II,0
+L_laguna2,Corkscrew,0
+render_r_midfield,Midfield Raceway II,0
+render_r_grandvalley,Grand Valley Speedway II,0
+L_deepforest1,,0
+L_deepforest2,,0
+render_tahitiroad,,0
+L_tahitidirt1,Tahiti Circuit Test Section,2
+L_tahitidirt2,Tahiti Circuit Test Section,2
+L_tahitimaze1,Tahiti Maze Test Section,2
+L_tahitimaze2,Tahiti Maze Test Section,2
+render_route5_dry,,0
+render_circle100,,0
+render_tahitimaze,,2
+L_slalom80r1,Complex String Section,0
+L_slalom80r2,Complex String Test Section,0
+L_slalom80r3,Complex String Test Section,0
+L_slalom80r4,,0
+render_tahitidirt,,2
+L_circle60_dry1,Circle 60R,0
+L_circle60_wet1,Circle 60R Wet,1
+L_midfield1,Mid-Field Test Section,0
+L_midfield2,Mid-Field Test Section,0
+L_midfield3,Mid-Field Test Section,0
+render_deepforest,,0
+render_rome,,0
+render_test,,0
+L_grandvalley1,Grand Valley Test Section,0
+L_grandvalley2,,0
+L_grandvalley3,Grand Valley Test Section,0
+montecarlo,CÅÙte d°«Azur,0
+L_deepforest1a,Deep Forest Test Section,0
+L_deepforest1b,Deep Forest Test Section,0
+L_deepforest2a,Deep Forest Test Section,0
+L_deepforest2b,Deep Forest Test Section,0
+r_apricot,Apricot Hill Raceway II,0
+render_akasaka,,0
+render_apricot,,0
+r_seattle,Seattle Circuit II,0
+render_route11,,0
+render_r_round,,0
+render_seattle,,0
+render_trialmt,,0
+r_slalom80r,Complex String II,0
+L_smtnorth1,Smokey Mountain Test Section,2
+L_smtsouth1,Swiss Alps Test Section,2
+L_smtsouth2,Swiss Alps Test Section,2
+L_testcourse1,Test Course Main Straight,0
+L_testcourse2,Test Course Main Straight,0
+L_testcourse3,Test Course Main Straight,0
+render_testcource,,0
+render_r_smtnorth,Smokey Mountain II,2
+render_r_route11,Special Stage Route 11 II,0
+render_r_akasaka,Tokyo R246 II,0
+render_r_apricot,Apricot Hill Raceway II,0
+render_r_seattle,Seattle Circuit II,0
+render_r_trialmt,Trial Mountain Circuit II,0
+render_r_trialmt,,0
+course_sample001,,0
+course_sample002,,0
+course_sample003,,2
+render_slalom80r,,0
+render_r_smtsouth,Swiss Alps II,2
