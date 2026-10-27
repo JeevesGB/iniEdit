@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
 
 KGFM_TO_NM = 9.80665
@@ -23,10 +23,34 @@ class DiscCar:
     power_ps: float
     torque_kgfm: float
     weight_kg: float
+    sound_id: int = 0  # engine sound bank id (sound/engine/%05d); 0 = unknown
 
     @property
     def torque_nm(self) -> float:
         return self.torque_kgfm * KGFM_TO_NM
+
+
+def _car_from_row(r: dict) -> DiscCar:
+    """Build a DiscCar from a JSON row; unknown/extra keys ignored; sound_id optional."""
+    data = {}
+    for f in fields(DiscCar):
+        if f.name not in r:
+            continue
+        val = r[f.name]
+        if f.name == "sound_id":
+            try:
+                data[f.name] = int(val)
+            except (TypeError, ValueError):
+                data[f.name] = 0
+        else:
+            data[f.name] = val
+    # required core fields must exist
+    required = ("label", "name", "maker", "year", "price", "model", "drive",
+                "power_ps", "torque_kgfm", "weight_kg")
+    for k in required:
+        if k not in data:
+            raise KeyError(k)
+    return DiscCar(**data)
 
 
 class DiscCars:
@@ -44,8 +68,14 @@ class DiscCars:
     def load(cls, path: str | Path) -> "DiscCars":
         try:
             raw = json.loads(Path(path).read_text(encoding="utf-8-sig"))
-            return cls([DiscCar(**{f: r[f] for f in DiscCar.__dataclass_fields__}) for r in raw])
-        except (OSError, ValueError, KeyError, TypeError):
+            cars = []
+            for r in raw:
+                try:
+                    cars.append(_car_from_row(r))
+                except (KeyError, TypeError, ValueError):
+                    continue
+            return cls(cars)
+        except (OSError, ValueError, TypeError):
             return cls()
 
     def __bool__(self) -> bool:
@@ -59,9 +89,18 @@ class DiscCars:
         return _norm(maker) in self._maker_keys if maker.strip() else False
 
     def lookup(self, source: str) -> list[str]:
-        return {"cars.label": self.labels, "cars.maker": self.makers}.get(source, [])
+        if source == "cars.label":
+            return self.labels
+        if source == "cars.maker":
+            return self.makers
+        if source == "cars.sound_id":
+            # unique non-zero sound bank ids as strings
+            ids = sorted({c.sound_id for c in self.cars if c.sound_id})
+            return [str(i) for i in ids]
+        return []
 
     def search(self, text: str) -> list[DiscCar]:
         words = text.lower().split()
         return [c for c in self.cars
-                if all(w in f"{c.label} {c.name} {c.maker} {c.drive} {c.year} {c.model}".lower() for w in words)]
+                if all(w in f"{c.label} {c.name} {c.maker} {c.drive} {c.year} {c.model} {c.sound_id}".lower()
+                       for w in words)]

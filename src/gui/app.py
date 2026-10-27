@@ -225,8 +225,14 @@ class ModCreatorApp(tk.Tk):
                 hint = ttk.Label(bar, text="", foreground="#a05a00")
                 hint.pack(side="left", padx=12)
                 self.maker_hints[spec.id] = hint
-            form = ParameterForm(page, spec, on_change=self._changed, lookup=self.disc.lookup,
-                                 on_browse=self._browse_donor if self.disc else None)
+            form = ParameterForm(
+                page, spec,
+                on_change=self._changed,
+                lookup=self.disc.lookup,
+                on_browse=self._browse_donor if self.disc else None,
+                on_image_browse=self._browse_image,
+                resolve_image=self._resolve_image_path,
+            )
             form.grid(row=1, column=0, sticky="nsew")
             self.forms[spec.id] = form
             self.form_pages[spec.id] = page
@@ -296,18 +302,115 @@ class ModCreatorApp(tk.Tk):
             self.notebook.add(widget, text=title.lower())
 
     def _browse_donor(self, param):
+        """Disc-car picker for donor or sound_id (same list, different purpose)."""
         form = self.forms.get("car")
-        if form is None:
+        if form is None or not self.disc:
             return
-        dialog = DiscBrowser(self, self.disc, current=form.vars[("car", param.key)].get().strip())
+        purpose = "sound" if (param.browse == "sound" or param.key == "sound_id") else "donor"
+        # sound_id lives under [powertrain]; donor under [car]
+        section = "powertrain" if purpose == "sound" else "car"
+        ident = (section, param.key)
+        current = ""
+        if ident in form.vars:
+            current = form.vars[ident].get().strip()
+        elif (param.key,) and any(k == param.key for (_, k) in form.vars):
+            for (sec, key), var in form.vars.items():
+                if key == param.key:
+                    current = var.get().strip()
+                    section = sec
+                    ident = (sec, key)
+                    break
+
+        dialog = DiscBrowser(self, self.disc, current=current, purpose=purpose)
         self.wait_window(dialog)
-        if dialog.result:
-            car, fill = dialog.result
-            form.vars[("car", param.key)].set(car.label)
-            if fill:
-                for (section, key), value in (("drivetrain", "drive"), car.drive), (("body", "weight_kg"), f"{car.weight_kg:g}"):
-                    if (section, key) in form.vars:
-                        form.vars[(section, key)].set(value)
+        if dialog.result is None:
+            return
+        if purpose == "sound":
+            # result is numeric sound bank id string, or "" to clear
+            form.vars[ident].set(dialog.result if dialog.result is not None else "")
+            return
+        car, fill = dialog.result
+        form.vars[ident].set(car.label)
+        # Always set Drive from the donor (user can change it afterwards).
+        if ("drivetrain", "drive") in form.vars and car.drive:
+            form.vars[("drivetrain", "drive")].set(car.drive)
+        # Optional: also copy curb weight when requested.
+        if fill and ("body", "weight_kg") in form.vars:
+            form.vars[("body", "weight_kg")].set(f"{car.weight_kg:g}")
+
+    def _resolve_image_path(self, raw: str) -> Path | None:
+        """Turn a typed path into a filesystem path under the mod (or absolute).
+
+        Bare names like ``logo.png`` are treated as ``images/logo.png``.
+        Paths already starting with ``images/`` or absolute paths are used as-is.
+        """
+        text = (raw or "").strip().replace("\\", "/")
+        if not text:
+            return None
+        p = Path(text)
+        if p.is_absolute():
+            return p if p.is_file() else None
+        root = self.mod_root()
+        if root is None:
+            return None
+        # Prefer as written
+        candidate = root / text
+        if candidate.is_file():
+            return candidate
+        # Bare filename → images/<name>
+        if "/" not in text and "\\" not in text:
+            under = root / "images" / text
+            if under.is_file():
+                return under
+        return candidate if candidate.exists() else None
+
+    def _browse_image(self, param, var: tk.Variable) -> None:
+        """Pick an image, copy it into the mod's images/ folder, set a relative path."""
+        root = self.ensure_mod_folder()
+        if root is None:
+            return
+        images_dir = root / "images"
+        images_dir.mkdir(parents=True, exist_ok=True)
+
+        initial = images_dir
+        current = str(var.get()).strip().replace("\\", "/")
+        if current:
+            resolved = self._resolve_image_path(current)
+            if resolved and resolved.is_file():
+                initial = resolved.parent
+
+        path = filedialog.askopenfilename(
+            title=f"Choose {param.label or 'image'}",
+            initialdir=str(initial),
+            filetypes=[
+                ("Images", "*.png *.jpg *.jpeg *.bmp *.gif *.webp"),
+                ("PNG", "*.png"),
+                ("All files", "*.*"),
+            ],
+        )
+        if not path:
+            return
+        src = Path(path)
+        # Always land in images/ with a clean relative path
+        dest_name = src.name
+        dest = images_dir / dest_name
+        try:
+            if src.resolve() != dest.resolve():
+                if dest.exists():
+                    if not messagebox.askyesno(
+                        "Replace image?",
+                        f"{dest_name} already exists in images/.\nReplace it?",
+                    ):
+                        # Still point at the existing file
+                        var.set(f"images/{dest_name}")
+                        return
+                import shutil
+                shutil.copy2(src, dest)
+        except OSError as exc:
+            messagebox.showerror("Could not copy image", str(exc))
+            return
+        # Store as images/<name> so it works even if the user later types a bare name
+        var.set(f"images/{dest_name}")
 
     def mod_root(self) -> Path | None:
         mod_id = self.mod_id_var.get().strip()
@@ -349,11 +452,24 @@ class ModCreatorApp(tk.Tk):
         except SchemaError as exc:
             messagebox.showerror("Schema error", str(exc))
 
+    def _normalize_image_path(self, raw: str) -> str:
+        """Prefer images/<name> when the user typed only a filename."""
+        text = (raw or "").strip().replace("\\", "/")
+        if not text or text.startswith("images/") or Path(text).is_absolute() or "/" in text:
+            return text
+        # Bare filename → images/<name>
+        return f"images/{text}"
+
     def _collect(self) -> ModProject:
         project = ModProject(self.schema, self.disc)
         project.mod_id = self.mod_id_var.get().strip()
         for spec in self.schema.files:
             values = {s: dict(items) for s, items in self.forms[spec.id].get_values().items()}
+            # Normalize bare image filenames to images/<name>
+            for sec in spec.sections:
+                for param in sec.parameters:
+                    if param.browse == "image" and sec.name in values and param.key in values[sec.name]:
+                        values[sec.name][param.key] = self._normalize_image_path(values[sec.name][param.key])
             for (fid, section, key), panel in self.curve_panels.items():
                 if fid == spec.id:
                     values.setdefault(section, {})[key] = panel.get_text()

@@ -46,7 +46,10 @@ class Parameter:
     default_display_limit: int = 9000
     comment: str = ""      
     note_above: str = ""    
-    auto: str = ""         
+    auto: str = ""
+    browse: str = ""            # "image" → show Browse… and treat as mod-relative image path
+    image_role: str = ""        # icon | background | logo | picture | thumb (preview layout)
+    image_size: str = ""        # e.g. "640x448" (hint only)
 
     def default_text(self) -> str:
         if self.type == "bool":

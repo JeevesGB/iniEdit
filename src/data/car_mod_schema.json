@@ -19,13 +19,13 @@
               "label": "Mod name",
               "default": "My Car Mod",
               "required": true,
-              "help": "The name people will see for this mod."
+              "help": "Name shown for this mod in the Mods list."
             },
             {
               "key": "version",
               "label": "Version",
               "default": "1.0",
-              "help": "Your own version number, e.g. 1.0. Raise it when you release an update."
+              "help": "Your version string, e.g. 1.0. Raise it when you release an update."
             },
             {
               "key": "author",
@@ -38,7 +38,7 @@
               "key": "description",
               "label": "Description",
               "default": "A GT3 Revisited car mod.",
-              "help": "A short blurb about the mod."
+              "help": "Short blurb about the mod. Also used as the default dealer text."
             },
             {
               "key": "priority",
@@ -48,7 +48,8 @@
               "comment": "higher wins when two mods provide the same file or car label",
               "help": "Higher wins when two mods provide the same file or car label."
             }
-          ]
+          ],
+          "description": "The mod\u2019s identity. The folder name is the mod\u2019s id."
         }
       ]
     },
@@ -71,7 +72,7 @@
               "label": "Maker name",
               "default": "",
               "auto": "car.car.maker",
-              "help": "Taken from the car's Maker field."
+              "help": "Must match the car\u2019s Maker field. Taken automatically from the Car tab."
             },
             {
               "key": "region",
@@ -86,33 +87,43 @@
                 "us"
               ],
               "required": true,
-              "help": "Dealer region code, e.g. jp (Japan), fr (France)."
+              "help": "Dealer region: jp, us, gr, fr, it, uk, bel or aus."
             },
             {
               "key": "description",
-              "label": "Description",
+              "label": "Dealer text",
               "default": "{mod.mod.description}",
-              "help": "Defaults to the mod's description."
+              "help": "Scrolling text on the region / dealer page. Defaults to the mod description."
             },
             {
               "key": "icon",
-              "label": "Icon",
+              "label": "Icon (strip)",
               "default": "",
-              "help": "Optional image path."
+              "help": "51\u00d727 strip button. Browse\u2026 copies into images/. Optional \u2014 without it the name is shown.",
+              "browse": "image",
+              "image_role": "icon",
+              "image_size": "51x27"
             },
             {
               "key": "background",
               "label": "Background",
               "default": "",
-              "help": "Optional image path."
+              "help": "640\u00d7448 dealer backdrop. Browse\u2026 copies into images/. Optional.",
+              "browse": "image",
+              "image_role": "background",
+              "image_size": "640x448"
             },
             {
               "key": "logo",
               "label": "Logo",
               "default": "",
-              "help": "Optional image path."
+              "help": "475\u00d7190 logo (transparent). Browse\u2026 copies into images/. Optional \u2014 without it the name is drawn in the menu font.",
+              "browse": "image",
+              "image_role": "logo",
+              "image_size": "475x190"
             }
-          ]
+          ],
+          "description": "Only needed for a maker the disc does not have. Cars with this maker name are sold here."
         }
       ]
     },
@@ -129,69 +140,73 @@
           "parameters": [
             {
               "key": "label",
-              "label": "Label",
+              "label": "Label (id)",
               "default": "my_car_89",
               "required": true,
               "pattern": "[a-z0-9_]+",
               "pattern_hint": "Use a-z, 0-9 and _ only.",
               "comment": "unique id (a-z, 0-9, _). Garage, saves and replays use it: never change it once shared",
-              "help": "Unique id. Never change it once shared. The .ini file is named after it."
+              "help": "Unique id used by the garage, saves and replays. a-z, 0-9, _ only. Never change it once shared \u2014 the .ini is named after it."
             },
             {
               "key": "name",
-              "label": "Name",
+              "label": "Display name",
               "default": "my_car",
               "required": true,
               "comment": "shown after the maker's name",
-              "help": "The car's display name, shown after the maker's name (Maker = Daihatsu, Name = Dumbo)."
+              "help": "Name shown after the maker (e.g. Maker = Daihatsu, Name = Dumbo \u2192 \u201cDaihatsu Dumbo\u201d)."
             },
             {
               "key": "maker",
               "label": "Maker",
               "default": "My Maker",
               "required": true,
-              "help": "Pick a disc maker to sell under it, or type a new one (then keep the maker file). Must match the maker file's name.",
+              "help": "Disc maker to sell under, or a new name (then keep the maker file). Must match the maker file\u2019s name.",
               "suggest_from": "cars.maker"
             },
             {
               "key": "year",
-              "label": "Year",
+              "label": "Model year",
               "type": "int",
               "default": "1989",
               "min": 1880,
               "max": 2100,
-              "help": "Model year, e.g. 1989."
+              "help": "Year of the car, e.g. 1989."
             },
             {
               "key": "price",
-              "label": "Price",
+              "label": "Dealer price",
               "type": "int",
               "default": "3000",
               "unit": "credits",
               "min": 0,
-              "help": "Dealer price."
+              "help": "Price in credits at the dealer."
             },
             {
               "key": "category",
               "label": "Category",
               "default": "production",
-              "suggestions": [
-                "production"
-              ],
               "required": true,
-              "help": "production = a road car (race cars use other bodies and rules)."
+              "help": "production = road car. race / rally use other bodies and rules.",
+              "type": "choice",
+              "choices": [
+                "production",
+                "race",
+                "rally"
+              ],
+              "comment": "production | race | rally"
             },
             {
               "key": "donor",
-              "label": "Donor",
+              "label": "Donor car",
               "default": "z_detroitver_01",
               "required": true,
               "comment": "the donor lends suspension geometry, steering, tyre compounds,\nbrakes, aids and the shop's upgrade parts.",
-              "help": "A disc car (see data/cars.json): lends suspension geometry, steering, tyre compounds, brakes, aids and upgrade parts. Use Browse to search the disc's cars.",
+              "help": "Disc car that lends suspension, steering, tyres, brakes, aids and upgrade parts. Use Browse to search.",
               "suggest_from": "cars.label"
             }
           ],
-          "description": "Who the car is. Anything you leave blank in the other sections is borrowed from the donor."
+          "description": "Identity of the car. Blank fields in other sections are borrowed from the donor."
         },
         {
           "name": "body",
@@ -206,17 +221,17 @@
               "unit": "kg",
               "min": 100,
               "comment": "curb weight (the game adds 120 kg of driver)",
-              "help": "Curb weight in kg. The game adds 120 kg for the driver."
+              "help": "Weight in kg before the driver. The game adds 120 kg for the driver."
             },
             {
               "key": "front_weight_pct",
-              "label": "Front weight",
+              "label": "Front weight %",
               "type": "float",
               "default": "52",
               "unit": "%",
               "min": 0,
               "max": 100,
-              "help": "Percentage of the weight on the front wheels (50 = evenly balanced)."
+              "help": "Share of weight on the front axle (50 = even). Affects handling balance."
             },
             {
               "key": "length_mm",
@@ -225,7 +240,7 @@
               "default": "4000",
               "unit": "mm",
               "min": 500,
-              "help": "Overall length in mm. The Model tools tab can measure this from your .glb."
+              "help": "Overall length in mm. Model tools can measure this from the .glb."
             },
             {
               "key": "width_mm",
@@ -235,7 +250,7 @@
               "unit": "mm",
               "min": 500,
               "comment": "without the mirrors",
-              "help": "Overall width in mm, without the mirrors. The Model tools tab can measure this."
+              "help": "Overall width in mm, without mirrors. Model tools can measure this."
             },
             {
               "key": "height_mm",
@@ -244,7 +259,7 @@
               "default": "1400",
               "unit": "mm",
               "min": 500,
-              "help": "Overall height in mm. The Model tools tab can measure this."
+              "help": "Overall height in mm. Model tools can measure this."
             },
             {
               "key": "wheelbase_mm",
@@ -254,7 +269,7 @@
               "unit": "mm",
               "min": 500,
               "comment": "between the wheel centres of the model",
-              "help": "Distance between the front and rear wheel centres, in mm."
+              "help": "Distance between front and rear wheel centres, in mm."
             },
             {
               "key": "front_track_mm",
@@ -264,7 +279,7 @@
               "unit": "mm",
               "min": 500,
               "comment": "centre to centre of the modelled tyres",
-              "help": "Distance between the left and right front wheel centres, in mm."
+              "help": "Distance between left and right front wheel centres, in mm."
             },
             {
               "key": "rear_track_mm",
@@ -273,27 +288,27 @@
               "default": "1450",
               "unit": "mm",
               "min": 500,
-              "help": "Distance between the left and right rear wheel centres, in mm."
+              "help": "Distance between left and right rear wheel centres, in mm."
             },
             {
               "key": "cd",
-              "label": "Drag coefficient (Cd)",
+              "label": "Drag (Cd)",
               "type": "float",
               "default": "0.32",
               "min": 0.05,
               "max": 2,
-              "help": "Drag coefficient: lower means less air resistance. Most road cars are about 0.28 to 0.40."
+              "help": "Drag coefficient. Lower = less air resistance. Typical road cars ~0.30\u20130.40."
             },
             {
               "key": "frontal_area_m2",
               "label": "Frontal area",
               "type": "float",
               "default": "2.00",
-              "unit": "m²",
+              "unit": "m\u00b2",
               "min": 0.5,
               "max": 10,
               "comment": "about 0.82 x width x height",
-              "help": "Front-on area in m². Roughly 0.82 × width × height (in metres)."
+              "help": "Front-on area in m\u00b2. Rough guide: 0.82 \u00d7 width(m) \u00d7 height(m)."
             },
             {
               "key": "ride_height_mm",
@@ -301,10 +316,10 @@
               "type": "int",
               "default": "",
               "unit": "mm",
-              "help": "Leave blank to use the donor's."
+              "help": "Leave blank to use the donor\u2019s ride height."
             }
           ],
-          "description": "Weight and size. The Model tools tab can measure length, width and height from your .glb for you."
+          "description": "Size and weight. Model tools can fill length, width, height, wheelbase and tracks from the .glb."
         },
         {
           "name": "powertrain",
@@ -312,12 +327,13 @@
           "parameters": [
             {
               "key": "type",
-              "label": "Type",
+              "label": "Powertrain type",
               "default": "engine",
               "suggestions": [
                 "engine"
               ],
-              "required": true
+              "required": true,
+              "help": "engine for ICE, or electric for an EV (adds motor/regen behaviour)."
             },
             {
               "key": "curve",
@@ -383,26 +399,26 @@
               "unit": "RPM",
               "min": 1000,
               "comment": "rev limiter",
-              "help": "Rev limiter: the engine won't rev past this. The torque curve must stay within it."
+              "help": "Engine will not rev past this (rpm). Align the torque curve to end here."
             },
             {
               "key": "idle_rpm",
-              "label": "Idle speed",
+              "label": "Idle rpm",
               "type": "int",
               "default": "850",
               "unit": "RPM",
               "min": 200,
-              "help": "Engine speed when standing still."
+              "help": "Idle speed in rpm."
             },
             {
               "key": "output_pct",
-              "label": "Output factor",
+              "label": "Output %",
               "type": "int",
               "default": "100",
               "unit": "%",
               "min": 1,
               "comment": "GT3's hidden output factor (disc cars: mostly 100-120),\nfitted with `gt3tool modcar` to the [reference] 0-60 and quarter mile",
-              "help": "GT3's hidden output factor. Disc cars are mostly 100 to 120; leave it at 100 if unsure."
+              "help": "Hidden GT3 power scale (disc cars mostly 100\u2013120). Tune with gt3tool modcar against [reference]."
             },
             {
               "key": "layout",
@@ -420,7 +436,7 @@
                 "H4",
                 "H6"
               ],
-              "help": "e.g. I4, V6, V12 DOHC."
+              "help": "e.g. I4, V6, V12, H4. Shown in the car database."
             },
             {
               "key": "aspiration",
@@ -444,10 +460,12 @@
               "key": "sound_id",
               "label": "Sound id",
               "default": "",
-              "help": "Leave blank to use the donor's sound bank."
+              "help": "Numeric engine sound bank id (sound/engine/NNNNN on the disc). Leave blank to use the donor's sound. Browse\u2026 picks a disc car and fills in that car's sound bank id (not the car label).",
+              "browse": "sound",
+              "suggest_from": "cars.sound_id"
             }
           ],
-          "description": "The engine. The torque curve itself is edited on the torque curve tab."
+          "description": "Engine (or motor). Edit the torque curve on the Torque curve tab."
         },
         {
           "name": "drivetrain",
@@ -455,7 +473,7 @@
           "parameters": [
             {
               "key": "drive",
-              "label": "Drive",
+              "label": "Drive layout",
               "default": "FF",
               "suggestions": [
                 "FF",
@@ -465,7 +483,7 @@
                 "4WD"
               ],
               "required": true,
-              "help": "Which wheels the engine drives: FF front, FR front-engined rear-drive, MR mid-engined rear-drive, RR rear-engined rear-drive, 4WD all four."
+              "help": "FF front, FR front-engine RWD, MR mid-engine RWD, RR rear-engine RWD, 4WD."
             },
             {
               "key": "gears",
@@ -481,7 +499,7 @@
               "min_items": 1,
               "min": 0.1,
               "max": 20,
-              "help": "Space separated, 1st gear first."
+              "help": "Space-separated ratios, 1st gear first (largest number). Edit on the Gearbox tab too."
             },
             {
               "key": "final_drive",
@@ -490,7 +508,7 @@
               "default": "4.10",
               "min": 0.5,
               "max": 20,
-              "help": "Final drive ratio, e.g. 4.10."
+              "help": "Final drive ratio, e.g. 4.10. Higher = more acceleration, lower top speed."
             },
             {
               "key": "reverse",
@@ -502,7 +520,7 @@
               "help": "Reverse gear ratio."
             }
           ],
-          "description": "The gearbox and which wheels are driven."
+          "description": "Drive layout and gearing. The Gearbox tab edits the same ratios with charts."
         },
         {
           "name": "tires",
@@ -514,7 +532,7 @@
               "default": "195/65R15",
               "pattern": "\\d{3}/\\d{2}R\\d{2}",
               "pattern_hint": "Use a size like 205/55R16.",
-              "help": "e.g. 205/55R16. Wheels are drawn from this size."
+              "help": "Size like 205/55R16. Wheels are drawn from this."
             },
             {
               "key": "rear",
@@ -522,19 +540,19 @@
               "default": "195/65R15",
               "pattern": "\\d{3}/\\d{2}R\\d{2}",
               "pattern_hint": "Use a size like 205/55R16.",
-              "help": "Same format as the front tyre, e.g. 205/55R16."
+              "help": "Same format as the front, e.g. 225/45R17."
             },
             {
               "key": "grip_pct",
-              "label": "Grip",
+              "label": "Grip %",
               "type": "int",
               "default": "88",
               "unit": "%",
               "min": 1,
-              "help": "Fit it to the [reference] skidpad with `gt3tool modcar`."
+              "help": "Street-compound grip scale. Fit to [reference] skidpad with gt3tool modcar."
             }
           ],
-          "description": "Tyre sizes and overall grip."
+          "description": "Tyre sizes drive the on-screen wheels and rolling radius (used for speed charts)."
         },
         {
           "name": "model",
@@ -546,25 +564,26 @@
               "label": "Model file",
               "default": "models/{car.car.label}.glb",
               "comment": "our own body: the wheels come from the engine",
-              "help": "Where your .glb body goes. {car.car.label} is filled in automatically. Clear it to use the donor's shell stretched to your body dimensions (the whole [model] section is then left out)."
+              "help": "Path to your .glb body under the mod, e.g. models/my_car.glb."
             },
             {
               "key": "wheel",
-              "label": "Wheel",
+              "label": "Wheel (rim id)",
               "default": "ma1031",
               "comment": "a disc rim (browse them with gt3r --browse wheel/)",
-              "help": "A disc rim id, e.g. ma1031."
+              "help": "Disc rim id, e.g. ma1031. Browse with gt3r --browse wheel/."
             },
             {
               "key": "lower_mm",
-              "label": "Lower body",
+              "label": "Body lower (mm)",
               "type": "int",
               "default": "0",
               "unit": "mm",
-              "comment": "fine-tune the body's height over the wheels if the arches look off"
+              "comment": "fine-tune the body's height over the wheels if the arches look off",
+              "help": "Fine-tune how far the body sits over the wheels if the arches look off."
             }
           ],
-          "description": "Your 3D body and the wheels it uses. Use the Model tools tab to add the .glb."
+          "description": "3D body and rim. Paths are under the mod folder."
         },
         {
           "name": "paints",
@@ -593,36 +612,45 @@
               "label": "For sale",
               "type": "bool",
               "default": "yes",
-              "help": "Whether the car can be bought at the dealer."
+              "help": "If yes, the car can be bought at its maker\u2019s dealer for the price above."
             },
             {
               "key": "description",
-              "label": "Description",
+              "label": "Dealer text",
               "default": "{mod.mod.description}",
-              "help": "Defaults to the mod's description."
+              "help": "Scrolling text on the dealer page. Defaults to the mod description."
             },
             {
               "key": "picture",
               "label": "Picture",
               "default": "images/{car.car.label}.png",
               "comment": "640x448, rendered with the game's car viewer (README.md \"Pictures\")",
-              "help": "640x448 picture. {car.car.label} is filled in automatically."
+              "help": "640\u00d7448 dealer photo. Browse\u2026 copies into images/.",
+              "browse": "image",
+              "image_role": "picture",
+              "image_size": "640x448"
             },
             {
               "key": "thumb",
               "label": "Thumbnail",
               "default": "images/{car.car.label}_thumb.png",
               "comment": "51x27: the dealer's strip button and the arcade picker's icon",
-              "help": "51x27 thumbnail. {car.car.label} is filled in automatically."
+              "help": "51\u00d727 strip button and arcade icon. Browse\u2026 copies into images/.",
+              "browse": "image",
+              "image_role": "thumb",
+              "image_size": "51x27"
             },
             {
               "key": "logo",
               "label": "Logo",
               "default": "",
-              "help": "Optional. Without it the dealer writes the name in the menu font."
+              "help": "Optional 256\u00d780 name art. Without it the menu font is used.",
+              "browse": "image",
+              "image_role": "logo",
+              "image_size": "256x80"
             }
           ],
-          "description": "How the car appears at the dealer: its text, picture and thumbnail."
+          "description": "How the car appears at the dealer: text, photo and strip icon."
         },
         {
           "name": "arcade",
@@ -630,20 +658,44 @@
           "parameters": [
             {
               "key": "class",
-              "label": "Class",
+              "label": "Arcade class",
+              "type": "choice",
               "default": "auto",
-              "suggestions": [
-                "auto"
-              ]
+              "choices": [
+                "auto",
+                "c",
+                "b",
+                "a",
+                "s",
+                "dirt",
+                "none"
+              ],
+              "comment": "auto (by power-to-weight, as GT3 ranks garage cars), c, b, a, s, dirt or none",
+              "help": "auto = rank by power-to-weight. Or force c / b / a / s / dirt / none."
+            },
+            {
+              "key": "race_variant",
+              "label": "Race variant",
+              "type": "choice",
+              "default": "auto",
+              "choices": [
+                "auto",
+                "0",
+                "1"
+              ],
+              "comment": "the class's race for stronger (0) or weaker (1) cars",
+              "help": "Which race in that class: auto, or 0 (stronger) / 1 (weaker)."
             },
             {
               "key": "level",
-              "label": "Level",
+              "label": "Unlock level",
               "type": "int",
               "default": "0",
-              "min": 0
+              "min": 0,
+              "help": "Arcade unlock level. 0 = available from the start."
             }
-          ]
+          ],
+          "description": "Where the car sits in Arcade mode."
         },
         {
           "name": "reference",
@@ -652,42 +704,42 @@
           "parameters": [
             {
               "key": "zero_to_60_s",
-              "label": "0-60 mph",
+              "label": "0\u201360 mph (s)",
               "type": "float",
               "default": "9.0",
               "unit": "s",
               "min": 0.1,
-              "help": "0-60 mph time in seconds."
+              "help": "Target 0\u201360 mph time in seconds (magazine tests). Only gt3tool modcar reads this."
             },
             {
               "key": "quarter_mile_s",
-              "label": "Quarter mile",
+              "label": "\u00bc mile (s)",
               "type": "float",
               "default": "16.5",
               "unit": "s",
               "min": 0.1,
-              "help": "Quarter-mile time in seconds."
+              "help": "Target quarter-mile time in seconds."
             },
             {
               "key": "top_speed_kmh",
-              "label": "Top speed",
+              "label": "Top speed (km/h)",
               "type": "int",
               "default": "190",
               "unit": "km/h",
               "min": 1,
-              "help": "Top speed in km/h."
+              "help": "Target top speed in km/h."
             },
             {
               "key": "skidpad_g",
-              "label": "Skidpad",
+              "label": "Skidpad (g)",
               "type": "float",
               "default": "0.78",
               "unit": "g",
               "min": 0.1,
-              "help": "Cornering grip on a skidpad, in g."
+              "help": "Target cornering grip on a skidpad, in g."
             }
           ],
-          "description": "Real-world figures for this car, used when tuning its performance. Optional."
+          "description": "Real-world targets for tuning. Only gt3tool modcar compares against these."
         }
       ]
     }
