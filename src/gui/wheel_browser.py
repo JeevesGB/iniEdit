@@ -14,14 +14,32 @@ class WheelBrowser(tk.Toplevel):
         self.title("Disc wheels: pick a rim")
         self.geometry("640x520")
         self.transient(master)
+        self.update_idletasks()
+        w, h = 640, 520
+        sw = self.winfo_screenwidth()
+        sh = self.winfo_screenheight()
+        x = max(0, (sw - w) // 2)
+        y = max(0, (sh - h) // 2)
+        self.geometry(f"{w}x{h}+{x}+{y}")
         self.wheels = wheels
         self.result: str | None = None
-        self._photos: list[object] = []
-        # Selection for highlight only — never "current" as a wheel id
         sel = (current or "").strip()
         self._selected: str | None = sel if sel and sel.lower() != "current" else None
         self.search_var = tk.StringVar()
-        self._marker = DiscWheels.current_marker_path()
+        self._marker_path = DiscWheels.current_marker_path()
+
+        # Performance: build each thumb PhotoImage once, reuse forever
+        self._photo_cache: dict[str, object] = {}   # id -> PhotoImage (plain)
+        self._photo_sel_cache: dict[str, object] = {}  # id -> PhotoImage (with badge)
+        self._cell_widgets: dict[str, dict] = {}    # id -> {border, img_label, ...}
+        self._visible_ids: list[str] = []
+        self._search_after: str | None = None
+        self._use_pil = False
+        try:
+            from PIL import Image, ImageTk  # noqa: F401
+            self._use_pil = True
+        except Exception:
+            pass
 
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
@@ -31,8 +49,7 @@ class WheelBrowser(tk.Toplevel):
         ttk.Label(bar, text="Search:").pack(side="left")
         entry = ttk.Entry(bar, textvariable=self.search_var, width=28)
         entry.pack(side="left", padx=6)
-        ttk.Label(bar, text="rim id (e.g. enw010_b) · badge = currently selected",
-                  foreground="#777777").pack(side="left")
+        ttk.Label(bar, text="rim id · badge = selected", foreground="#777777").pack(side="left")
         self.count = ttk.Label(bar, text="")
         self.count.pack(side="right")
 
@@ -47,18 +64,18 @@ class WheelBrowser(tk.Toplevel):
         self.canvas.grid(row=0, column=0, sticky="nsew")
         scroll.grid(row=0, column=1, sticky="ns")
 
-        self.inner = ttk.Frame(self.canvas)
+        self.inner = tk.Frame(self.canvas, background="#1a1e24")
         self._window = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
         self.inner.bind("<Configure>", lambda _e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
         self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfigure(self._window, width=e.width))
 
-        def wheel(event):
+        def on_wheel(event):
             self.canvas.yview_scroll(-1 if (event.num == 4 or event.delta > 0) else 1, "units")
 
         self.canvas.bind("<Enter>", lambda _e: (
-            self.canvas.bind_all("<MouseWheel>", wheel),
-            self.canvas.bind_all("<Button-4>", wheel),
-            self.canvas.bind_all("<Button-5>", wheel),
+            self.canvas.bind_all("<MouseWheel>", on_wheel),
+            self.canvas.bind_all("<Button-4>", on_wheel),
+            self.canvas.bind_all("<Button-5>", on_wheel),
         ))
         self.canvas.bind("<Leave>", lambda _e: (
             self.canvas.unbind_all("<MouseWheel>"),
@@ -73,30 +90,70 @@ class WheelBrowser(tk.Toplevel):
         ttk.Button(foot, text="Use selected", command=self._accept).pack(side="left", padx=(12, 0))
         ttk.Button(foot, text="Cancel", command=self.destroy).pack(side="right")
 
-        self.search_var.trace_add("write", lambda *_: self._fill())
-        self._fill()
+        # Debounced search — avoid rebuilding on every keystroke
+        self.search_var.trace_add("write", self._on_search)
+        self.after(10, self._rebuild)  # first paint after window maps
         entry.focus_set()
         self.bind("<Return>", lambda _e: self._accept())
         self.bind("<Escape>", lambda _e: self.destroy())
         self.grab_set()
 
-    def _fill(self):
+    def _on_search(self, *_args):
+        if self._search_after is not None:
+            try:
+                self.after_cancel(self._search_after)
+            except Exception:
+                pass
+        self._search_after = self.after(150, self._rebuild)
+
+    def _get_photo(self, w: DiscWheel, selected: bool):
+        """Return a cached PhotoImage; build once per id (+ selected variant)."""
+        cache = self._photo_sel_cache if selected else self._photo_cache
+        if w.id in cache:
+            return cache[w.id]
+        photo = self._build_photo(w, selected)
+        if photo is not None:
+            cache[w.id] = photo
+        return photo
+
+    def _build_photo(self, w: DiscWheel, selected: bool):
+        if w.thumb is None or not w.thumb.is_file():
+            return None
+        try:
+            if self._use_pil:
+                from PIL import Image, ImageTk
+                im = Image.open(w.thumb).convert("RGBA")
+                im.thumbnail((THUMB_PX, THUMB_PX), Image.BILINEAR)  # faster than LANCZOS
+                canvas = Image.new("RGBA", (THUMB_PX, THUMB_PX), (37, 42, 50, 255))
+                x = (THUMB_PX - im.width) // 2
+                y = (THUMB_PX - im.height) // 2
+                canvas.paste(im, (x, y), im)
+                if selected and self._marker_path is not None:
+                    try:
+                        badge = Image.open(self._marker_path).convert("RGBA")
+                        badge.thumbnail((THUMB_PX // 3, THUMB_PX // 3), Image.BILINEAR)
+                        canvas.paste(badge, (THUMB_PX - badge.width - 2, 2), badge)
+                    except Exception:
+                        pass
+                return ImageTk.PhotoImage(canvas)
+            return tk.PhotoImage(file=str(w.thumb))
+        except Exception:
+            return None
+
+    def _rebuild(self):
+        """Full grid rebuild (search change or first open)."""
+        self._search_after = None
         for child in self.inner.winfo_children():
             child.destroy()
-        self._photos.clear()
+        self._cell_widgets.clear()
 
         items = self.wheels.search(self.search_var.get())
+        self._visible_ids = [w.id for w in items]
         self.count.configure(text=f"{len(items)} of {len(self.wheels.wheels)} rims")
-
-        try:
-            from PIL import Image, ImageTk
-            use_pil = True
-        except Exception:
-            use_pil = False
 
         for i, w in enumerate(items):
             r, c = divmod(i, COLS)
-            cell = tk.Frame(self.inner, background="#1a1e24", padx=4, pady=4)
+            cell = tk.Frame(self.inner, background="#1a1e24", padx=3, pady=3)
             cell.grid(row=r, column=c, sticky="nsew")
 
             selected = self._selected == w.id
@@ -105,11 +162,9 @@ class WheelBrowser(tk.Toplevel):
             hold = tk.Frame(border, background="#252a32")
             hold.pack()
 
-            # Thumbnail layer
             img_label = tk.Label(hold, background="#252a32")
-            photo = self._make_photo(w, use_pil, selected=selected)
+            photo = self._get_photo(w, selected=selected)
             if photo is not None:
-                self._photos.append(photo)
                 img_label.configure(image=photo)
             else:
                 img_label.configure(text="?", fg="#888888", width=8, height=4)
@@ -119,10 +174,14 @@ class WheelBrowser(tk.Toplevel):
                             font=("Segoe UI", 8))
             name.pack()
 
+            self._cell_widgets[w.id] = {
+                "wheel": w,
+                "border": border,
+                "img_label": img_label,
+            }
+
             def on_click(_e, wid=w.id):
-                self._selected = wid
-                self.status.configure(text=f"Selected: {wid}")
-                self._fill()
+                self._select(wid)
 
             def on_double(_e, wid=w.id):
                 self._selected = wid
@@ -137,35 +196,37 @@ class WheelBrowser(tk.Toplevel):
         else:
             self.status.configure(text="Click a rim, double-click to confirm")
 
-    def _make_photo(self, w: DiscWheel, use_pil: bool, selected: bool = False):
-        """Rim thumbnail; if selected and current.png exists, composite the marker on top."""
-        if w.thumb is None or not w.thumb.is_file():
-            return None
-        try:
-            if use_pil:
-                from PIL import Image, ImageTk
-                im = Image.open(w.thumb).convert("RGBA")
-                im.thumbnail((THUMB_PX, THUMB_PX), Image.LANCZOS)
-                canvas = Image.new("RGBA", (THUMB_PX, THUMB_PX), (37, 42, 50, 255))
-                x = (THUMB_PX - im.width) // 2
-                y = (THUMB_PX - im.height) // 2
-                canvas.paste(im, (x, y), im)
+        # Pre-warm a few more photos in the background so scrolling feels instant
+        self.after(1, lambda: self._prewarm(items[:24]))
 
-                # Selection badge: overlay current.png (indicator only, not a rim id)
-                if selected and self._marker is not None:
-                    try:
-                        badge = Image.open(self._marker).convert("RGBA")
-                        # small badge in the corner
-                        badge.thumbnail((THUMB_PX // 3, THUMB_PX // 3), Image.LANCZOS)
-                        bx = THUMB_PX - badge.width - 2
-                        by = 2
-                        canvas.paste(badge, (bx, by), badge)
-                    except Exception:
-                        pass
-                return ImageTk.PhotoImage(canvas)
-            return tk.PhotoImage(file=str(w.thumb))
-        except Exception:
-            return None
+    def _prewarm(self, items: list[DiscWheel]):
+        for w in items:
+            if w.id not in self._photo_cache:
+                self._get_photo(w, selected=False)
+
+    def _select(self, wid: str):
+        """Update selection without rebuilding the whole grid."""
+        prev = self._selected
+        if prev == wid:
+            return
+        self._selected = wid
+        self.status.configure(text=f"Selected: {wid}")
+
+        # Un-highlight previous
+        if prev and prev in self._cell_widgets:
+            cell = self._cell_widgets[prev]
+            cell["border"].configure(background="#333840")
+            photo = self._get_photo(cell["wheel"], selected=False)
+            if photo is not None:
+                cell["img_label"].configure(image=photo)
+
+        # Highlight new
+        if wid in self._cell_widgets:
+            cell = self._cell_widgets[wid]
+            cell["border"].configure(background="#6db3f2")
+            photo = self._get_photo(cell["wheel"], selected=True)
+            if photo is not None:
+                cell["img_label"].configure(image=photo)
 
     def _accept(self):
         if not self._selected or self._selected.lower() == "current":

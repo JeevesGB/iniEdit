@@ -40,6 +40,13 @@ class GearPanel(ttk.Frame):
         self._after: str | None = None
         self._editor: ttk.Entry | None = None
         self._dirty = True
+        self._suspend_sliders = False
+        self.gear_slider_var = tk.DoubleVar(value=2.0)
+        self.final_slider_var = tk.DoubleVar(value=3.5)
+        self.reverse_slider_var = tk.DoubleVar(value=3.2)
+        self.gear_slider_label = tk.StringVar(value="Select a gear")
+        self.final_slider_label = tk.StringVar(value="Final drive")
+        self.reverse_slider_label = tk.StringVar(value="Reverse")
         self._build()
         for var in (self.gears_var, self.final_var, self.reverse_var, *[x for x in self.optional.values() if x]):
             var.trace_add("write", lambda *_: self.schedule_refresh())
@@ -100,7 +107,7 @@ class GearPanel(ttk.Frame):
         self.table.tag_configure("reverse", foreground=HINT_FG)
         self.table.tag_configure("bad", foreground=ERROR_FG)
         self.table.bind("<Double-1>", self._begin_edit)
-        self.table.bind("<<TreeviewSelect>>", lambda _e: self._plot())
+        self.table.bind("<<TreeviewSelect>>", self._on_table_select)
         self.table.bind("<Delete>", lambda _e: self.remove_gear())
         ttk.Label(box, text="Double-click a ratio to edit it. Step = ratio between this gear and the next.",
                   foreground=HINT_FG, wraplength=430).grid(row=1, column=0, sticky="w", pady=(4, 4))
@@ -114,6 +121,43 @@ class GearPanel(ttk.Frame):
         for col, (label, var, hint) in enumerate((("Final drive", self.final_var, ""), ("Reverse", self.reverse_var, ""))):
             ttk.Label(fields, text=label).grid(row=0, column=col * 2, sticky="w", padx=(0 if col == 0 else 14, 4))
             ttk.Spinbox(fields, textvariable=var, from_=0.5, to=20, increment=0.05, width=8).grid(row=0, column=col * 2 + 1)
+
+        # ---- live sliders ----
+        adj = ttk.LabelFrame(box, text="Slider adjust", padding=8)
+        adj.grid(row=4, column=0, sticky="ew", pady=(8, 0))
+        adj.columnconfigure(1, weight=1)
+
+        ttk.Label(adj, textvariable=self.gear_slider_label).grid(row=0, column=0, columnspan=3, sticky="w")
+        self.gear_scale = ttk.Scale(
+            adj, from_=0.40, to=5.50, orient="horizontal",
+            variable=self.gear_slider_var, command=self._on_gear_slider,
+        )
+        self.gear_scale.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(2, 4))
+        gbtns = ttk.Frame(adj)
+        gbtns.grid(row=2, column=0, columnspan=3, sticky="w", pady=(0, 6))
+        ttk.Button(gbtns, text="−0.05", width=6, command=lambda: self._nudge_selected(-0.05)).pack(side="left")
+        ttk.Button(gbtns, text="+0.05", width=6, command=lambda: self._nudge_selected(0.05)).pack(side="left", padx=4)
+        ttk.Button(gbtns, text="−0.20", width=6, command=lambda: self._nudge_selected(-0.20)).pack(side="left")
+        ttk.Button(gbtns, text="+0.20", width=6, command=lambda: self._nudge_selected(0.20)).pack(side="left", padx=4)
+
+        ttk.Label(adj, textvariable=self.final_slider_label).grid(row=3, column=0, columnspan=3, sticky="w")
+        self.final_scale = ttk.Scale(
+            adj, from_=1.50, to=7.00, orient="horizontal",
+            variable=self.final_slider_var, command=self._on_final_slider,
+        )
+        self.final_scale.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(2, 4))
+
+        ttk.Label(adj, textvariable=self.reverse_slider_label).grid(row=5, column=0, columnspan=3, sticky="w")
+        self.reverse_scale = ttk.Scale(
+            adj, from_=1.5, to=5.0, orient="horizontal",
+            variable=self.reverse_slider_var, command=self._on_reverse_slider,
+        )
+        self.reverse_scale.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(2, 2))
+
+        ttk.Label(
+            adj, foreground=HINT_FG, wraplength=420,
+            text="Select a gear in the table, then drag its slider. Final drive and reverse always apply.",
+        ).grid(row=7, column=0, columnspan=3, sticky="w", pady=(6, 0))
 
         gen = ttk.LabelFrame(left, text="Build a gearbox", padding=8)
         gen.grid(row=1, column=0, sticky="ew", pady=(8, 0))
@@ -282,6 +326,95 @@ class GearPanel(ttk.Frame):
             gears[self._row] = value
             self._set_gears(gears)
 
+
+    def _on_table_select(self, _event=None):
+        self._sync_sliders_from_values()
+        self._plot()
+
+    def _sync_sliders_from_values(self):
+        """Push current ratios into slider widgets without writing back."""
+        self._suspend_sliders = True
+        try:
+            gears = self._gears()
+            idx = self._selected_gear_index()
+            if idx is not None and 0 <= idx < len(gears):
+                self.gear_slider_var.set(gears[idx])
+                self.gear_slider_label.set(f"Gear {idx + 1} ratio: {gearing.fmt_ratio(gears[idx])}")
+                self.gear_scale.state(["!disabled"])
+            else:
+                self.gear_slider_label.set("Select a gear in the table to adjust its ratio")
+                try:
+                    self.gear_scale.state(["disabled"])
+                except Exception:
+                    pass
+            final = self._number(self.final_var)
+            if final is not None:
+                self.final_slider_var.set(max(1.5, min(7.0, final)))
+                self.final_slider_label.set(f"Final drive: {gearing.fmt_ratio(final)}")
+            rev = self._number(self.reverse_var)
+            if rev is not None:
+                self.reverse_slider_var.set(max(1.5, min(5.0, rev)))
+                self.reverse_slider_label.set(f"Reverse: {gearing.fmt_ratio(rev)}")
+        finally:
+            self._suspend_sliders = False
+
+    def _selected_gear_index(self) -> int | None:
+        sel = self.table.selection()
+        if not sel:
+            return None
+        iid = sel[0]
+        # forward gears use iid "0","1",…; reverse may be "R"
+        if iid == "R":
+            return None
+        try:
+            return int(iid)
+        except ValueError:
+            return None
+
+    def _on_gear_slider(self, _value=None):
+        if self._suspend_sliders:
+            return
+        idx = self._selected_gear_index()
+        if idx is None:
+            return
+        gears = self._gears()
+        if not (0 <= idx < len(gears)):
+            return
+        ratio = round(float(self.gear_slider_var.get()), 3)
+        gears[idx] = ratio
+        self.gear_slider_label.set(f"Gear {idx + 1} ratio: {gearing.fmt_ratio(ratio)}")
+        self._set_gears(gears)
+
+    def _on_final_slider(self, _value=None):
+        if self._suspend_sliders:
+            return
+        value = round(float(self.final_slider_var.get()), 3)
+        self.final_slider_label.set(f"Final drive: {gearing.fmt_ratio(value)}")
+        self.final_var.set(gearing.fmt_ratio(value))
+
+    def _on_reverse_slider(self, _value=None):
+        if self._suspend_sliders:
+            return
+        value = round(float(self.reverse_slider_var.get()), 3)
+        self.reverse_slider_label.set(f"Reverse: {gearing.fmt_ratio(value)}")
+        self.reverse_var.set(gearing.fmt_ratio(value))
+
+    def _nudge_selected(self, delta: float):
+        idx = self._selected_gear_index()
+        if idx is None:
+            return
+        gears = self._gears()
+        if not (0 <= idx < len(gears)):
+            return
+        gears[idx] = round(max(0.40, min(5.50, gears[idx] + delta)), 3)
+        self._set_gears(gears)
+        self._suspend_sliders = True
+        try:
+            self.gear_slider_var.set(gears[idx])
+            self.gear_slider_label.set(f"Gear {idx + 1} ratio: {gearing.fmt_ratio(gears[idx])}")
+        finally:
+            self._suspend_sliders = False
+
     def schedule_refresh(self, delay: int = 120):
         self._dirty = True
         if self._after is not None:
@@ -315,6 +448,8 @@ class GearPanel(ttk.Frame):
                 "R", gearing.fmt_ratio(reverse), "", f"{reverse * final:.2f}" if final else "", "", ""))
         if selected and self.table.exists(selected[0]):
             self.table.selection_set(selected[0])
+        elif gears and self.table.exists("0"):
+            self.table.selection_set("0")
 
         notes = gearing.issues(gears)
         if radius is None:
@@ -335,6 +470,7 @@ class GearPanel(ttk.Frame):
                      f"overall top gear {gears[-1] * final:.2f}:1.")
         else:
             self.summary.configure(text="")
+        self._sync_sliders_from_values()
         self._plot()
 
     def _plot(self):
