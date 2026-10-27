@@ -52,11 +52,13 @@ class ParameterForm(ttk.Frame):
                  lookup: Callable[[str], list[str]] | None = None,
                  on_browse: Callable[[Parameter], None] | None = None,
                  on_image_browse: Callable[[Parameter, tk.Variable], None] | None = None,
+                 on_wheel_browse: Callable[[Parameter, tk.Variable], None] | None = None,
                  resolve_image: Callable[[str], Path | None] | None = None):
         super().__init__(master)
         self.lookup = lookup or (lambda _s: [])
         self.on_browse = on_browse
         self.on_image_browse = on_image_browse
+        self.on_wheel_browse = on_wheel_browse
         self.resolve_image = resolve_image or (lambda _p: None)
         self.spec = spec
         self.params: dict[tuple[str, str], Parameter] = {
@@ -269,6 +271,12 @@ class ParameterForm(ttk.Frame):
             )
             ttk.Button(cell, text=btn_text, command=lambda p=param: self.on_browse(p)).grid(
                 row=0, column=btn_col, sticky="w", padx=(6, 0))
+            btn_col += 1
+        elif param.browse == "wheel" and self.on_wheel_browse:
+            ttk.Button(
+                cell, text="Browse wheels…",
+                command=lambda p=param, v=var: self.on_wheel_browse(p, v),
+            ).grid(row=0, column=btn_col, sticky="w", padx=(6, 0))
             btn_col += 1
         elif param.browse == "image" and self.on_image_browse:
             ttk.Button(cell, text="Browse…",

@@ -571,7 +571,8 @@
               "label": "Wheel (rim id)",
               "default": "ma1031",
               "comment": "a disc rim (browse them with gt3r --browse wheel/)",
-              "help": "Disc rim id, e.g. ma1031. Browse with gt3r --browse wheel/."
+              "help": "Disc rim id (e.g. enw010_b, ozw004_b). Browse wheels\u2026 opens a thumbnail grid; double-click a rim to select it.",
+              "browse": "wheel"
             },
             {
               "key": "lower_mm",

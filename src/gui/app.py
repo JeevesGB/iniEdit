@@ -10,10 +10,12 @@ from tkinter import filedialog, messagebox, ttk
 from core import settings
 from gui import icons as icons_mod, theme, tooltip
 from core.discdata import DiscCars
+from core.wheels import DiscWheels
 from core.project import ModProject
 from core.schema import FileSpec, Schema, SchemaError, load_schema
 from gui.curve_panel import CurvePanel
 from gui.disc_browser import DiscBrowser
+from gui.wheel_browser import WheelBrowser
 from gui.gear_panel import GearPanel
 from gui.guide import GuideWindow
 from gui.model_panel import ModelPanel
@@ -79,6 +81,7 @@ class ModCreatorApp(tk.Tk):
         self.comments_var = tk.BooleanVar(value=True)
 
         self.disc = DiscCars.load(DISC_CARS)
+        self.wheels = DiscWheels.load()
         self.schema: Schema | None = None
         self.schema_path = schema_path
         self.parent_dir: Path | None = None   
@@ -230,6 +233,7 @@ class ModCreatorApp(tk.Tk):
                 on_change=self._changed,
                 lookup=self.disc.lookup,
                 on_browse=self._browse_donor if self.disc else None,
+                on_wheel_browse=self._browse_wheel if self.wheels else None,
                 on_image_browse=self._browse_image,
                 resolve_image=self._resolve_image_path,
             )
@@ -337,6 +341,16 @@ class ModCreatorApp(tk.Tk):
         # Optional: also copy curb weight when requested.
         if fill and ("body", "weight_kg") in form.vars:
             form.vars[("body", "weight_kg")].set(f"{car.weight_kg:g}")
+
+
+    def _browse_wheel(self, param, var: tk.Variable) -> None:
+        """Open the rim thumbnail browser and set [model] wheel to the chosen id."""
+        if not self.wheels:
+            return
+        dialog = WheelBrowser(self, self.wheels, current=str(var.get()).strip())
+        self.wait_window(dialog)
+        if dialog.result:
+            var.set(dialog.result)
 
     def _resolve_image_path(self, raw: str) -> Path | None:
         """Turn a typed path into a filesystem path under the mod (or absolute).
