@@ -5,3 +5,4 @@ builds
 *.zip
 build.bat
 built_icon.py 
+rename.py 
