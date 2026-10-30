@@ -375,12 +375,22 @@ def _load_glb_mesh_pygltf(path: str | Path, max_triangles: int) -> tuple:
         count = acc.count
         if stride == comp_size * comps:
             arr = np.frombuffer(blob, dtype=dtype, count=count * comps, offset=off)
-            return arr.reshape(count, comps).copy()
-        # strided
-        out = np.empty((count, comps), dtype=dtype)
-        for i in range(count):
-            base = off + i * stride
-            out[i] = np.frombuffer(blob, dtype=dtype, count=comps, offset=base)
+            out = arr.reshape(count, comps).astype(np.float64, copy=True)
+        else:
+            out = np.empty((count, comps), dtype=np.float64)
+            for i in range(count):
+                base = off + i * stride
+                out[i] = np.frombuffer(blob, dtype=dtype, count=comps, offset=base)
+        # Normalized integer accessors → 0..1 (common for TEXCOORD / COLOR)
+        if getattr(acc, "normalized", False) and ctype != 5126:
+            if ctype == 5121:  # uint8
+                out /= 255.0
+            elif ctype == 5123:  # uint16
+                out /= 65535.0
+            elif ctype == 5120:  # int8
+                out = np.maximum(out / 127.0, -1.0)
+            elif ctype == 5122:  # int16
+                out = np.maximum(out / 32767.0, -1.0)
         return out
 
     # Materials → texture index + base colour

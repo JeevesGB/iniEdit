@@ -49,7 +49,6 @@ class ModelViewPanel(ttk.Frame):
         self._target = np.zeros(3)
         self._drag: tuple[int, int] | None = None
         self._orbiting = False
-        self._flip_u = tk.BooleanVar(value=True)
         self._render_after: str | None = None
 
         self._build()
@@ -66,8 +65,6 @@ class ModelViewPanel(ttk.Frame):
         ttk.Button(bar, text="Side", command=lambda: self._preset(0.0, 0.05)).pack(side="left", padx=4)
         ttk.Button(bar, text="Rear", command=lambda: self._preset(math.pi / 2, 0.08)).pack(side="left", padx=4)
         ttk.Button(bar, text="3/4", command=lambda: self._preset(-0.9, 0.32)).pack(side="left", padx=4)
-        ttk.Checkbutton(bar, text="Unmirror texture", variable=self._flip_u,
-                        command=lambda: self._render(fast=False)).pack(side="left", padx=(12, 0))
         self.status = ttk.Label(bar, text="", foreground=HINT_FG)
         self.status.pack(side="left", padx=(12, 0))
 
@@ -171,7 +168,6 @@ class ModelViewPanel(ttk.Frame):
     def _on_release(self, _event=None):
         self._drag = None
         self._orbiting = False
-        self._flip_u = tk.BooleanVar(value=True)
         self._render(fast=False)
 
     def _on_wheel(self, event):
@@ -202,14 +198,14 @@ class ModelViewPanel(ttk.Frame):
         z_axis = (self._target - eye).astype(np.float32)
         z_axis /= float(np.linalg.norm(z_axis)) + 1e-8
         up = np.array([0.0, 1.0, 0.0], dtype=np.float32)
-        x_axis = np.cross(up, z_axis)
+        x_axis = np.cross(z_axis, up)
         n = float(np.linalg.norm(x_axis))
         if n < 1e-6:
             up = np.array([0.0, 0.0, 1.0], dtype=np.float32)
-            x_axis = np.cross(up, z_axis)
+            x_axis = np.cross(z_axis, up)
             n = float(np.linalg.norm(x_axis))
         x_axis /= n + 1e-8
-        y_axis = np.cross(z_axis, x_axis)
+        y_axis = np.cross(x_axis, z_axis)
         rot = np.stack([x_axis, y_axis, z_axis], axis=0)  # world → cam
         return eye, rot
 
@@ -406,17 +402,16 @@ class ModelViewPanel(ttk.Frame):
                 if tex is not None and tw > 0 and th > 0:
                     uu = w0 * u0 + w1 * u1 + w2 * u2
                     vv = w0 * v0 + w1 * v1 + w2 * v2
-                    # Mirror within this triangle's UV island (not global 1-u,
-                    # which swaps left/right atlas halves and "shifts" logos).
-                    if self._flip_u.get():
-                        uc = (u0 + u1 + u2) / 3.0
-                        uu = 2.0 * uc - uu
-                    uu = uu - math.floor(uu)
-                    vv = vv - math.floor(vv)
-                    tx = min(tw - 1, max(0, int(uu * tw)))
-                    ty = min(th - 1, max(0, int(vv * th)))
+                    # glTF 2.0: UV (0,0) = top-left of the image
+                    uu = uu % 1.0
+                    vv = vv % 1.0
+                    if uu < 0:
+                        uu += 1.0
+                    if vv < 0:
+                        vv += 1.0
+                    tx = min(tw - 1, int(uu * tw))
+                    ty = min(th - 1, int(vv * th))
                     tr, tg, tb = tex[ty, tx]
-                    # baseColorFactor multiplies the texture (glTF PBR)
                     r = int(min(255, tr * br * shade))
                     g = int(min(255, tg * bg * shade))
                     b = int(min(255, tb * bb * shade))
