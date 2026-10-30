@@ -19,6 +19,7 @@ from gui.wheel_browser import WheelBrowser
 from gui.gear_panel import GearPanel
 from gui.guide import GuideWindow
 from gui.model_panel import ModelPanel
+from gui.model_view_panel import ModelViewPanel
 from gui.icons import SAVE_ICON, TAB_ICONS, load_icon
 from gui.parameter_form import ParameterForm
 from gui.paints_panel import PaintsPanel
@@ -258,6 +259,12 @@ class ModCreatorApp(tk.Tk):
             form.set_help_visible(self.help_var.get())
         self.model_panel = ModelPanel(self.notebook, self, BASE_DIR / "tools" / "prepare.py")
         self._add_tab(self.model_panel, "Model tools", TAB_ICONS["model_tools"])
+        self.model_view = ModelViewPanel(
+            self.notebook,
+            get_model_path=self._model_view_path,
+            get_layout=self._model_view_layout,
+        )
+        self._add_tab(self.model_view, "Model view", TAB_ICONS.get("model_tools", ""))
         self.preview = PreviewPanel(self.notebook, {s.id: f"{s.id}.ini" for s in schema.files})
         self._add_tab(self.preview, "preview", TAB_ICONS["preview"])
         self._building = False
@@ -425,6 +432,46 @@ class ModCreatorApp(tk.Tk):
             return
         # Store as images/<name> so it works even if the user later types a bare name
         var.set(f"images/{dest_name}")
+
+
+    def _model_view_path(self) -> Path | None:
+        """Resolve the car's [model] file under the mod folder."""
+        form = self.forms.get("car")
+        if form is None:
+            return None
+        raw = ""
+        for key in (("model", "file"), ("model", "path")):
+            if key in form.vars:
+                raw = str(form.vars[key].get()).strip()
+                break
+        if not raw:
+            return None
+        p = Path(raw)
+        if p.is_file():
+            return p
+        root = self.mod_root()
+        if root is None:
+            return None
+        cand = root / raw
+        return cand if cand.is_file() else None
+
+    def _model_view_layout(self) -> dict:
+        """Body / tyre numbers used to place wheels in the model view."""
+        form = self.forms.get("car")
+        out: dict = {}
+        if form is None:
+            return out
+        pairs = [
+            (("body", "wheelbase_mm"), "wheelbase_mm"),
+            (("body", "front_track_mm"), "front_track_mm"),
+            (("body", "rear_track_mm"), "rear_track_mm"),
+            (("tires", "front"), "front"),
+            (("tires", "rear"), "rear"),
+        ]
+        for ident, name in pairs:
+            if ident in form.vars:
+                out[name] = str(form.vars[ident].get()).strip()
+        return out
 
     def mod_root(self) -> Path | None:
         mod_id = self.mod_id_var.get().strip()
@@ -797,7 +844,8 @@ class ModCreatorApp(tk.Tk):
         settings.update(theme=name)
         theme.apply(self, name)
         theme.restyle_canvases(self)
-        theme.restyle_figures(*self.curve_panels.values(), *self.gear_panels.values())
+        theme.restyle_figures(*self.curve_panels.values(), *self.gear_panels.values(),
+                           *([self.model_view] if getattr(self, 'model_view', None) else []))
         self.status_var.set(f"Theme: {theme.THEMES[name]}. Some widgets finish updating when you next restart.")
 
     def _save_window_state(self):

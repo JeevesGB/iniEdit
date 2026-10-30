@@ -144,8 +144,27 @@ def parse_loose(text: str) -> list[Point]:
     return rows
 
 
+# Shape presets for generate(): (low_frac, rise_exp, fall_exp, plateau)
+# low_frac: torque at idle as a fraction of peak
+# rise_exp: shape of the climb to peak torque (higher = more lag / later boost)
+# fall_exp: how fast torque falls after peak power (higher = steeper)
+# plateau: 0–1 blend that holds torque longer between peak-Nm and peak-kW
+ASPIRATION_SHAPES = {
+    "NA":           (0.55, 1.0, 1.6, 0.15),
+    "Turbo":        (0.35, 2.2, 1.9, 0.55),
+    "Supercharged": (0.48, 1.3, 1.7, 0.35),
+}
+ASPIRATIONS = tuple(ASPIRATION_SHAPES.keys())
+
+
 def generate(peak_nm: float, peak_nm_rpm: int, peak_kw: float, peak_kw_rpm: int,
-             idle: int, redline: int, max_points: int = DEFAULT_MAX_POINTS) -> list[Point]:
+             idle: int, redline: int, max_points: int = DEFAULT_MAX_POINTS,
+             aspiration: str = "NA") -> list[Point]:
+    """Build a smooth torque curve that hits the given peaks.
+
+    *aspiration* is one of ``NA``, ``Turbo``, ``Supercharged`` and changes
+    low-rpm fill, boost onset and the fall-off past peak power.
+    """
     if not (0 < idle < peak_nm_rpm <= peak_kw_rpm <= redline):
         raise ValueError("Needs idle < torque peak rpm <= power peak rpm <= rev limiter.")
     t_pow = peak_kw * 9549.2966 / peak_kw_rpm
@@ -154,14 +173,31 @@ def generate(peak_nm: float, peak_nm_rpm: int, peak_kw: float, peak_kw_rpm: int,
                          f"{peak_nm:g} Nm peak torque. Lower the power or raise the torque.")
     t_pow = min(t_pow, peak_nm)
 
+    key = (aspiration or "NA").strip()
+    # tolerate common aliases
+    aliases = {
+        "n/a": "NA", "naturally aspirated": "NA", "atmospheric": "NA",
+        "t": "Turbo", "turbocharged": "Turbo",
+        "sc": "Supercharged", "super": "Supercharged", "blower": "Supercharged",
+    }
+    key = aliases.get(key.lower(), key)
+    if key not in ASPIRATION_SHAPES:
+        key = "NA"
+    low_frac, rise_exp, fall_exp, plateau = ASPIRATION_SHAPES[key]
+
     def torque(r: float) -> float:
         if r <= peak_nm_rpm:
+            # smoothstep raised to rise_exp → turbo lag / NA fill
             u = min(1.0, max(0.0, (r - idle) / max(1, peak_nm_rpm - idle)))
-            return peak_nm * (0.55 + 0.45 * (u * u * (3 - 2 * u)))
+            s = u * u * (3 - 2 * u)
+            s = s ** rise_exp
+            return peak_nm * (low_frac + (1.0 - low_frac) * s)
         if r <= peak_kw_rpm:
             u = (r - peak_nm_rpm) / max(1, peak_kw_rpm - peak_nm_rpm)
-            return peak_nm + (t_pow - peak_nm) * u
-        return t_pow * (peak_kw_rpm / r) ** 1.6
+            # plateau holds torque near the peak longer (turbo / SC)
+            u_eff = u * (1.0 - plateau) + (u * u) * plateau
+            return peak_nm + (t_pow - peak_nm) * u_eff
+        return t_pow * (peak_kw_rpm / r) ** fall_exp
 
     anchors = {peak_nm_rpm, peak_kw_rpm, redline}
     start = max(1000, int(round(idle / 500.0)) * 500)
@@ -172,6 +208,6 @@ def generate(peak_nm: float, peak_nm_rpm: int, peak_kw: float, peak_kw_rpm: int,
         free = [r for r in rpms if r not in anchors]
         if not free:
             break
-        free.remove(min(free, key=lambda r: min(abs(r - a) for a in anchors)))   # drop the point nearest an anchor
+        free.remove(min(free, key=lambda r: min(abs(r - a) for a in anchors)))
         rpms = sorted(anchors | set(free))
     return [(r, round(torque(r), 1)) for r in rpms]

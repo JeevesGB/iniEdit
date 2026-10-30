@@ -759,6 +759,7 @@ class GeneratorDialog(tk.Toplevel):
         super().__init__(master)
         self.panel = panel
         self.title("Generate a torque curve")
+        self.transient(panel.winfo_toplevel())
         self.transient(master.winfo_toplevel())
         self.resizable(False, False)
         pts = panel.points
@@ -770,11 +771,16 @@ class GeneratorDialog(tk.Toplevel):
             "unit": tk.StringVar(value="kW"),
             "idle": tk.StringVar(value=str(panel.idle_rpm or 850)),
             "limit": tk.StringVar(value=str(panel.max_rpm or max(pk_p[0] + 1000, 7000))),
+            "asp": tk.StringVar(value="NA"),
         }
         body = ttk.Frame(self, padding=14)
         body.grid()
-        ttk.Label(body, text="Enter the figures from the car's spec sheet.\nThe curve is built to hit both peaks.",
-                  foreground=HINT_FG).grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 10))
+        ttk.Label(
+            body,
+            text="Enter peak torque, peak power and their rpm from the car's specs.\n"
+                 "Aspiration changes the shape (low-end fill, boost onset, fall-off).",
+            foreground=HINT_FG,
+        ).grid(row=0, column=0, columnspan=6, sticky="w", pady=(0, 10))
         rows = (("Peak torque", "tq", "Nm", "at", "tq_rpm"), ("Peak power", "pw", None, "at", "pw_rpm"))
         for r, (label, key, unit, at, rkey) in enumerate(rows, start=1):
             ttk.Label(body, text=label).grid(row=r, column=0, sticky="w", pady=3)
@@ -793,10 +799,18 @@ class GeneratorDialog(tk.Toplevel):
         ttk.Label(body, text="Rev limiter").grid(row=4, column=0, sticky="w", pady=3)
         ttk.Entry(body, textvariable=self.vars["limit"], width=8).grid(row=4, column=1, padx=4)
         ttk.Label(body, text="rpm").grid(row=4, column=2, sticky="w")
+        ttk.Label(body, text="Aspiration").grid(row=5, column=0, sticky="w", pady=3)
+        ttk.Combobox(
+            body, textvariable=self.vars["asp"],
+            values=list(curve_mod.ASPIRATIONS), state="readonly", width=14,
+        ).grid(row=5, column=1, columnspan=2, sticky="w", padx=4)
+        ttk.Label(
+            body, text="NA · Turbo · Supercharged", foreground=HINT_FG,
+        ).grid(row=5, column=3, columnspan=3, sticky="w")
         self.error = ttk.Label(body, text="", foreground=ERROR_FG, wraplength=380, justify="left")
-        self.error.grid(row=5, column=0, columnspan=6, sticky="w", pady=(8, 0))
+        self.error.grid(row=6, column=0, columnspan=6, sticky="w", pady=(8, 0))
         buttons = ttk.Frame(body)
-        buttons.grid(row=6, column=0, columnspan=6, sticky="e", pady=(12, 0))
+        buttons.grid(row=7, column=0, columnspan=6, sticky="e", pady=(12, 0))
         ttk.Button(buttons, text="Cancel", command=self.destroy).pack(side="right")
         ttk.Button(buttons, text="Generate", command=self.generate).pack(side="right", padx=6)
         self.bind("<Return>", lambda _e: self.generate())
@@ -812,7 +826,11 @@ class GeneratorDialog(tk.Toplevel):
             if min(tq, pw) <= 0:
                 raise ValueError("Torque and power must be above zero.")
             kw = pw * {"kW": 1.0, "PS": 1 / 1.3596216, "hp": curve_mod.KW_PER_HP}[v["unit"].get()]
-            points = curve_mod.generate(tq, tq_rpm, kw, pw_rpm, idle, limit, self.panel.param.max_points)
+            points = curve_mod.generate(
+                tq, tq_rpm, kw, pw_rpm, idle, limit,
+                self.panel.param.max_points,
+                aspiration=v["asp"].get(),
+            )
         except ValueError as exc:
             self.error.configure(text=str(exc) if str(exc) and "could not convert" not in str(exc)
                                  else "Please fill every box with a number.")
