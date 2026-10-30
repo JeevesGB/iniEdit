@@ -5,13 +5,55 @@ import tkinter.font as tkfont
 from tkinter import ttk
 import matplotlib
 
-THEMES = {"xp": "Windows XP (Luna)", "system": "System default"}
+THEMES = {
+    "win95": "Windows 95",
+    "xp": "Windows XP",
+    "vista": "Windows Vista",
+    "win7": "Windows 7",
+    "system": "System default",
+}
+
+# Classic clam palettes. Keys match the colours the rest of the app reads.
+PALETTES = {
+    "win95": {
+        "bg": "#C0C0C0", "face": "#C0C0C0", "blue": "#000080", "blue_dark": "#000000",
+        "orange": "#000080", "field": "#808080", "group": "#808080", "title": "#000000",
+        "tab": "#C0C0C0", "tab_sel": "#C0C0C0", "heading": "#C0C0C0", "scroll": "#C0C0C0",
+        "scroll_border": "#808080", "progress": "#000080", "disabled": "#808080",
+        "select_fg": "white", "arrow": "#000000", "active": "#DFDFDF",
+        "font": ("MS Sans Serif", "Tahoma", "Verdana", "DejaVu Sans"), "size": 8,
+    },
+    "xp": {
+        "bg": "#ECE9D8", "face": "#F4F3EE", "blue": "#316AC5", "blue_dark": "#003C74",
+        "orange": "#F8B330", "field": "#7F9DB9", "group": "#D0D0BF", "title": "#0046D5",
+        "tab": "#F1EFE2", "tab_sel": "#FCFCFE", "heading": "#EBEADB", "scroll": "#C1D2EE",
+        "scroll_border": "#98B3E3", "progress": "#3EB43E", "disabled": "#ACA899",
+        "select_fg": "white", "arrow": "#4D6185", "active": "#FFF8E5",
+        "font": ("Tahoma", "Segoe UI", "Verdana", "DejaVu Sans"), "size": 9,
+    },
+    "vista": {
+        "bg": "#F0F4F8", "face": "#FFFFFF", "blue": "#3399FF", "blue_dark": "#1C4F8C",
+        "orange": "#6CB6FF", "field": "#A6C8E6", "group": "#C5D6E8", "title": "#1C4F8C",
+        "tab": "#E7F0F8", "tab_sel": "#FFFFFF", "heading": "#D6E6F5", "scroll": "#D0E4F7",
+        "scroll_border": "#8FB4D6", "progress": "#3399FF", "disabled": "#A0A8B0",
+        "select_fg": "white", "arrow": "#1C4F8C", "active": "#E4F2FF",
+        "font": ("Segoe UI", "Tahoma", "Verdana", "DejaVu Sans"), "size": 9,
+    },
+    "win7": {
+        "bg": "#F0F0F0", "face": "#F7F7F7", "blue": "#3399FF", "blue_dark": "#1F4E79",
+        "orange": "#5BA3E0", "field": "#ABADB3", "group": "#D4D4D4", "title": "#1F4E79",
+        "tab": "#E8E8E8", "tab_sel": "#FFFFFF", "heading": "#E5E5E5", "scroll": "#E1E1E1",
+        "scroll_border": "#BCBCBC", "progress": "#06B025", "disabled": "#A0A0A0",
+        "select_fg": "white", "arrow": "#505050", "active": "#E5F3FF",
+        "font": ("Segoe UI", "Tahoma", "Verdana", "DejaVu Sans"), "size": 9,
+    },
+}
+
 SCALE = 1.0
-BG = "#ECE9D8"          
-FACE = "#F4F3EE"
-BLUE, BLUE_DARK, ORANGE = "#316AC5", "#003C74", "#F8B330"
-FIELD_BORDER, GROUP_BORDER, GROUP_TITLE = "#7F9DB9", "#D0D0BF", "#0046D5"
+BG = PALETTES["xp"]["bg"]
+BLUE = PALETTES["xp"]["blue"]
 _original: dict = {}
+_active = "xp"
 
 
 def enable_dpi_awareness() -> None:
@@ -37,7 +79,7 @@ def init_scale(root: tk.Tk) -> float:
         SCALE = max(1.0, min(3.0, root.winfo_fpixels("1i") / 96.0))
     except tk.TclError:
         SCALE = 1.0
-    if SCALE > 1.01 and not getattr(ttk.Treeview, "_scaled", False):      # table columns are set in pixels
+    if SCALE > 1.01 and not getattr(ttk.Treeview, "_scaled", False):
         original = ttk.Treeview.column
 
         def column(self, column, option=None, **kw):
@@ -51,107 +93,111 @@ def init_scale(root: tk.Tk) -> float:
     return SCALE
 
 
-def _font_face(root) -> str:
+def _font_face(root, names: tuple[str, ...]) -> str:
     families = set(tkfont.families(root))
-    for name in ("Tahoma", "Segoe UI", "Verdana", "DejaVu Sans"):
+    for name in names:
         if name in families:
             return name
     return tkfont.nametofont("TkDefaultFont", root).actual("family")
 
 
 def apply(root: tk.Tk, name: str) -> None:
+    global BG, BLUE, _active
     style = ttk.Style(root)
     if not _original:
         _original["theme"] = style.theme_use()
         _original["fonts"] = {n: tkfont.nametofont(n, root).actual() for n in
                               ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont")}
         _original["fig"] = matplotlib.rcParams["figure.facecolor"]
-    if name != "xp":
+    if name == "system" or name not in PALETTES:
         style.theme_use(_original["theme"])
         for n, spec in _original["fonts"].items():
             tkfont.nametofont(n, root).configure(**spec)
         root.configure(background=style.lookup("TFrame", "background") or root.cget("background"))
         matplotlib.rcParams["figure.facecolor"] = _original["fig"]
+        BG = root.cget("background")
+        BLUE = "#316AC5"
+        _active = "system"
         _install_wheel_guard(root)
         return
 
-    face = _font_face(root)
+    p = PALETTES[name]
+    BG, BLUE, _active = p["bg"], p["blue"], name
+    face = _font_face(root, p["font"])
     for n in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont"):
-        tkfont.nametofont(n, root).configure(family=face, size=9)
+        tkfont.nametofont(n, root).configure(family=face, size=p["size"])
     style.theme_use("clam")
-    root.configure(background=BG)
-    root.option_add("*Menu.background", BG)
-    root.option_add("*Menu.activeBackground", BLUE)
-    root.option_add("*Menu.activeForeground", "white")
+    root.configure(background=p["bg"])
+    root.option_add("*Menu.background", p["bg"])
+    root.option_add("*Menu.activeBackground", p["blue"])
+    root.option_add("*Menu.activeForeground", p["select_fg"])
     root.option_add("*Text.background", "white")
-    root.option_add("*Text.selectBackground", BLUE)
-    root.option_add("*Listbox.selectBackground", BLUE)
-    root.option_add("*TCombobox*Listbox.selectBackground", BLUE)
-    root.option_add("*TCombobox*Listbox.selectForeground", "white")
+    root.option_add("*Text.selectBackground", p["blue"])
+    root.option_add("*Listbox.selectBackground", p["blue"])
+    root.option_add("*TCombobox*Listbox.selectBackground", p["blue"])
+    root.option_add("*TCombobox*Listbox.selectForeground", p["select_fg"])
     root.option_add("*TCombobox*Listbox.background", "white")
 
     c = style.configure
     m = style.map
-    c(".", background=BG, foreground="#000000", fieldbackground="white", troughcolor="#F3F2EA",
-      bordercolor=GROUP_BORDER, lightcolor="white", darkcolor=GROUP_BORDER, focuscolor=BG,
-      selectbackground=BLUE, selectforeground="white", insertcolor="black")
-    m(".", foreground=[("disabled", "#ACA899")])
+    c(".", background=p["bg"], foreground="#000000", fieldbackground="white", troughcolor=p["bg"],
+      bordercolor=p["group"], lightcolor="white", darkcolor=p["group"], focuscolor=p["bg"],
+      selectbackground=p["blue"], selectforeground=p["select_fg"], insertcolor="black")
+    m(".", foreground=[("disabled", p["disabled"])])
 
-    c("TButton", background=FACE, bordercolor=BLUE_DARK, lightcolor="white", darkcolor="#D6D0C5",
-      relief="raised", borderwidth=1, padding=(px(10), px(3)), anchor="center", focuscolor=FACE)
+    c("TButton", background=p["face"], bordercolor=p["blue_dark"], lightcolor="white", darkcolor=p["group"],
+      relief="raised", borderwidth=1, padding=(px(10), px(3)), anchor="center", focuscolor=p["face"])
     m("TButton",
-      background=[("pressed", "#E3E0D3"), ("disabled", "#F4F3EE"), ("active", "#FFF8E5")],
-      bordercolor=[("disabled", "#C9C7BA")],
-      lightcolor=[("pressed", "#D6D0C5"), ("active", "#FFF0CF")],
-      darkcolor=[("pressed", "#FFFFFF"), ("active", ORANGE)],
+      background=[("pressed", p["heading"]), ("disabled", p["face"]), ("active", p["active"])],
+      bordercolor=[("disabled", p["group"])],
       relief=[("pressed", "sunken")])
     c("Toolbutton", padding=px(3))
 
     for entry in ("TEntry", "TSpinbox", "TCombobox"):
-        c(entry, fieldbackground="white", bordercolor=FIELD_BORDER, lightcolor="white", darkcolor=FIELD_BORDER,
-          padding=px(2), selectbackground=BLUE, selectforeground="white")
-        m(entry, bordercolor=[("focus", BLUE), ("disabled", "#C9C7BA")],
-          fieldbackground=[("disabled", "#F4F3EE"), ("readonly", "white")],
-          foreground=[("disabled", "#ACA899")])
-    c("TCombobox", arrowcolor="#4D6185", background="#C1D2EE", arrowsize=px(14))
-    m("TCombobox", background=[("active", "#B0C9F4"), ("pressed", "#9DB9EB")],
+        c(entry, fieldbackground="white", bordercolor=p["field"], lightcolor="white", darkcolor=p["field"],
+          padding=px(2), selectbackground=p["blue"], selectforeground=p["select_fg"])
+        m(entry, bordercolor=[("focus", p["blue"]), ("disabled", p["group"])],
+          fieldbackground=[("disabled", p["face"]), ("readonly", "white")],
+          foreground=[("disabled", p["disabled"])])
+    c("TCombobox", arrowcolor=p["arrow"], background=p["scroll"], arrowsize=px(14))
+    m("TCombobox", background=[("active", p["active"]), ("pressed", p["scroll"])],
       selectbackground=[("readonly", "white")], selectforeground=[("readonly", "black")])
-    c("TSpinbox", arrowcolor="#4D6185", background="#C1D2EE", arrowsize=px(12))
-    m("TSpinbox", background=[("active", "#B0C9F4")])
+    c("TSpinbox", arrowcolor=p["arrow"], background=p["scroll"], arrowsize=px(12))
+    m("TSpinbox", background=[("active", p["active"])])
 
     for check in ("TCheckbutton", "TRadiobutton"):
-        c(check, indicatorbackground="white", indicatorforeground="#21A121", indicatormargin=px(3))
-        m(check, indicatorbackground=[("disabled", "#F4F3EE")], background=[("active", BG)])
+        c(check, indicatorbackground="white", indicatorforeground=p["progress"], indicatormargin=px(3))
+        m(check, indicatorbackground=[("disabled", p["face"])], background=[("active", p["bg"])])
 
-    c("TLabelframe", background=BG, bordercolor=GROUP_BORDER, lightcolor=BG, darkcolor=BG, relief="solid")
-    c("TLabelframe.Label", background=BG, foreground=GROUP_TITLE)
+    c("TLabelframe", background=p["bg"], bordercolor=p["group"], lightcolor=p["bg"], darkcolor=p["bg"], relief="solid")
+    c("TLabelframe.Label", background=p["bg"], foreground=p["title"])
 
-    c("TNotebook", background=BG, bordercolor="#919B9C", lightcolor="white", darkcolor="#919B9C",
+    c("TNotebook", background=p["bg"], bordercolor=p["group"], lightcolor="white", darkcolor=p["group"],
       tabmargins=(px(2), px(4), px(2), 0))
-    c("TNotebook.Tab", background="#F1EFE2", foreground="#000000", bordercolor="#919B9C",
-      lightcolor="white", darkcolor="#D6D2C2", padding=(px(9), px(3)))
+    c("TNotebook.Tab", background=p["tab"], foreground="#000000", bordercolor=p["group"],
+      lightcolor="white", darkcolor=p["group"], padding=(px(9), px(3)))
     m("TNotebook.Tab",
-      background=[("selected", "#FCFCFE"), ("active", "#FFF3D1")],
-      lightcolor=[("selected", "#F8A830"), ("active", ORANGE)],
+      background=[("selected", p["tab_sel"]), ("active", p["active"])],
+      lightcolor=[("selected", p["orange"]), ("active", p["orange"])],
       expand=[("selected", (px(1), px(2), px(1), 0))])
 
-    c("Treeview", background="white", fieldbackground="white", bordercolor=FIELD_BORDER, rowheight=px(20),
-      lightcolor="white", darkcolor=FIELD_BORDER)
-    m("Treeview", background=[("selected", BLUE)], foreground=[("selected", "white")])
-    c("Treeview.Heading", background="#EBEADB", foreground="#000000", bordercolor="#C5C2B8",
-      lightcolor="white", darkcolor="#D6D2C2", relief="raised", padding=(px(4), px(3)))
-    m("Treeview.Heading", background=[("active", "#FFF3D1")])
+    c("Treeview", background="white", fieldbackground="white", bordercolor=p["field"], rowheight=px(20),
+      lightcolor="white", darkcolor=p["field"])
+    m("Treeview", background=[("selected", p["blue"])], foreground=[("selected", p["select_fg"])])
+    c("Treeview.Heading", background=p["heading"], foreground="#000000", bordercolor=p["group"],
+      lightcolor="white", darkcolor=p["group"], relief="raised", padding=(px(4), px(3)))
+    m("Treeview.Heading", background=[("active", p["active"])])
 
     for orient in ("Vertical", "Horizontal"):
-        c(f"{orient}.TScrollbar", background="#C1D2EE", troughcolor="#F3F2EA", bordercolor="#98B3E3",
-          lightcolor="#E3ECFC", darkcolor="#98B3E3", arrowcolor="#4D6185", arrowsize=px(15), gripcount=0)
-        m(f"{orient}.TScrollbar", background=[("active", "#B0C9F4"), ("pressed", "#9DB9EB")])
-    c("Sash", sashthickness=px(6), gripcount=0, background=BG)
-    c("TPanedwindow", background=BG)
-    c("TSeparator", background="#C5C2B8")
-    c("TProgressbar", background="#3EB43E", troughcolor="white", bordercolor=FIELD_BORDER)
+        c(f"{orient}.TScrollbar", background=p["scroll"], troughcolor=p["bg"], bordercolor=p["scroll_border"],
+          lightcolor="white", darkcolor=p["scroll_border"], arrowcolor=p["arrow"], arrowsize=px(15), gripcount=0)
+        m(f"{orient}.TScrollbar", background=[("active", p["active"]), ("pressed", p["scroll_border"])])
+    c("Sash", sashthickness=px(6), gripcount=0, background=p["bg"])
+    c("TPanedwindow", background=p["bg"])
+    c("TSeparator", background=p["group"])
+    c("TProgressbar", background=p["progress"], troughcolor="white", bordercolor=p["field"])
 
-    matplotlib.rcParams["figure.facecolor"] = BG
+    matplotlib.rcParams["figure.facecolor"] = p["bg"]
     _install_wheel_guard(root)
 
 

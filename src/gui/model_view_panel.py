@@ -1,17 +1,18 @@
-"""Fast 3D body + wheel preview (software renderer, no matplotlib)."""
 from __future__ import annotations
 import math
 import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
 from typing import Callable
-
 import numpy as np
 from PIL import Image, ImageTk
-
 from core import modeltools
 from core.modeltools import ModelToolError
+from gui.gl_renderer import GLRenderer, overlay_lines
 from gui.parameter_form import parse_tyre_size, tyre_dimensions
+
+GL_MAX_TRIANGLES = 400_000      # OpenGL path: effectively 'show everything'
+SOFT_MAX_TRIANGLES = 6000       # software path: keep it usable
 
 HINT_FG = "#777777"
 BG = (26, 30, 36)
@@ -22,7 +23,6 @@ GRID_RGB = (42, 48, 56)
 
 
 class ModelViewPanel(ttk.Frame):
-    """Shows the .glb body and wheel positions with a lightweight software renderer."""
 
     def __init__(
         self,
@@ -42,7 +42,7 @@ class ModelViewPanel(ttk.Frame):
         self._path: Path | None = None
         self._photo: ImageTk.PhotoImage | None = None
 
-        # Camera (orbit around target)
+        # Camera
         self._yaw = -0.9
         self._pitch = 0.32
         self._dist = 6.0
@@ -50,9 +50,17 @@ class ModelViewPanel(ttk.Frame):
         self._drag: tuple[int, int] | None = None
         self._orbiting = False
         self._render_after: str | None = None
+        self._pending_fast = False
+        self._canvas_img: int | None = None
+        self._last_status = ""
+        self._mesh_dirty = True
+        self._gl: GLRenderer | None = None
+        self._gl_error = ""
 
         self._build()
+        self._init_gl()
         self.bind("<Map>", lambda _e: self.refresh())
+        self.bind("<Destroy>", self._on_destroy)
 
     def _build(self):
         self.columnconfigure(0, weight=1)
@@ -70,7 +78,7 @@ class ModelViewPanel(ttk.Frame):
 
         self.canvas = tk.Canvas(self, background="#1a1e24", highlightthickness=0)
         self.canvas.grid(row=1, column=0, sticky="nsew")
-        self.canvas.bind("<Configure>", lambda _e: self._render())
+        self.canvas.bind("<Configure>", lambda _e: self._schedule_render())
         self.canvas.bind("<ButtonPress-1>", self._on_press)
         self.canvas.bind("<B1-Motion>", self._on_drag)
         self.canvas.bind("<ButtonRelease-1>", self._on_release)
@@ -88,6 +96,7 @@ class ModelViewPanel(ttk.Frame):
 
     def refresh(self):
         path = self.get_model_path()
+        old_path = self._path
         notes: list[str] = []
         if path is None or not path.is_file():
             self._verts = self._uvs = self._faces = None
@@ -98,7 +107,7 @@ class ModelViewPanel(ttk.Frame):
         elif path != self._path:
             try:
                 verts, uvs, faces, face_tex, face_color, textures = modeltools.load_glb_mesh(
-                    path, max_triangles=6000,
+                    path, max_triangles=GL_MAX_TRIANGLES if self._gl else SOFT_MAX_TRIANGLES,
                 )
                 self._verts = np.asarray(verts, dtype=np.float32)
                 self._uvs = np.asarray(uvs, dtype=np.float32)
@@ -124,6 +133,9 @@ class ModelViewPanel(ttk.Frame):
                 self._path = None
                 notes.append(f"Could not read model: {e}")
 
+        if self._path != old_path:
+            self._mesh_dirty = True
+
         layout = self.get_layout() or {}
         self._last_layout = layout
         self._last_notes = notes
@@ -138,7 +150,6 @@ class ModelViewPanel(ttk.Frame):
         maxs = self._verts.max(axis=0)
         self._target = ((mins + maxs) * 0.5).astype(np.float32)
         extent = float(np.max(maxs - mins)) or 2.0
-        # Distance so the model fills ~60% of the view height at FOV 50°
         self._dist = max(extent * 1.8, 0.5)
         self._yaw = -0.9
         self._pitch = 0.32
@@ -149,7 +160,6 @@ class ModelViewPanel(ttk.Frame):
         extent = float(np.linalg.norm(self._verts.max(axis=0) - self._verts.min(axis=0))) or 2.0
         self._dist = max(self._dist, extent * 0.8)
 
-    # ---- interaction ----
     def _on_press(self, event):
         self._drag = (event.x, event.y)
         self._orbiting = True
@@ -163,38 +173,31 @@ class ModelViewPanel(ttk.Frame):
         self._yaw -= dx * 0.008
         self._pitch += dy * 0.008
         self._pitch = max(-1.2, min(1.2, self._pitch))
-        self._render(fast=True)
+        self._schedule_render(fast=True)
 
     def _on_release(self, _event=None):
         self._drag = None
         self._orbiting = False
-        self._render(fast=False)
+        self._render_now(fast=False)
 
     def _on_wheel(self, event):
         delta = -1 if event.delta > 0 else 1
         self._dist *= 1.1 ** delta
         self._dist = max(0.3, min(80.0, self._dist))
-        self._render()
+        self._schedule_render()
 
     def _on_wheel_linux(self, direction: int):
         self._dist *= 1.1 ** direction
         self._dist = max(0.3, min(80.0, self._dist))
-        self._render()
+        self._schedule_render()
 
-    # ---- camera ----
     def _camera_matrix(self) -> tuple[np.ndarray, np.ndarray]:
-        """Return (camera_position, rotation_world_to_cam 3x3).
-
-        Camera space: +X right, +Y up, **+Z toward the scene** (depth > 0 in front).
-        """
         cy, sy = math.cos(self._yaw), math.sin(self._yaw)
         cp, sp = math.cos(self._pitch), math.sin(self._pitch)
-        # Orbit offset from target (eye sits on this offset)
         offset = np.array([sy * cp, sp, cy * cp], dtype=np.float32)
         n_off = float(np.linalg.norm(offset)) or 1.0
         offset = offset / n_off
         eye = self._target + offset * self._dist
-        # Look direction: from eye toward target → +Z in camera space
         z_axis = (self._target - eye).astype(np.float32)
         z_axis /= float(np.linalg.norm(z_axis)) + 1e-8
         up = np.array([0.0, 1.0, 0.0], dtype=np.float32)
@@ -209,7 +212,51 @@ class ModelViewPanel(ttk.Frame):
         rot = np.stack([x_axis, y_axis, z_axis], axis=0)  # world → cam
         return eye, rot
 
-    # ---- render ----
+    def _init_gl(self):
+        try:
+            self._gl = GLRenderer()
+            self._gl_error = ""
+        except Exception as exc:          # no moderngl, no driver, VM, ...
+            self._gl = None
+            self._gl_error = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
+
+    def _release_gl(self):
+        if self._gl is not None:
+            try:
+                self._gl.release()
+            except Exception:
+                pass
+        self._gl = None
+
+    def _on_destroy(self, event):
+        if event.widget is self:
+            self._release_gl()
+
+    def _schedule_render(self, fast: bool = False):
+        self._pending_fast = fast
+        if self._render_after is None:
+            self._render_after = self.after(8, self._flush_render)
+
+    def _flush_render(self):
+        self._render_after = None
+        self._render(fast=self._pending_fast)
+
+    def _render_now(self, fast: bool = False):
+        if self._render_after is not None:
+            self.after_cancel(self._render_after)
+            self._render_after = None
+        self._render(fast=fast)
+
+    def _show_image(self, img: Image.Image, w: int, h: int):
+        if self._photo is None or self._photo.width() != w or self._photo.height() != h:
+            self._photo = ImageTk.PhotoImage(img)
+            if self._canvas_img is None:
+                self._canvas_img = self.canvas.create_image(0, 0, anchor="nw", image=self._photo)
+            else:
+                self.canvas.itemconfigure(self._canvas_img, image=self._photo)
+        else:
+            self._photo.paste(img)        # reuse the Tk image: no per-frame allocation
+
     def _render(self, fast: bool = False):
         w = max(self.canvas.winfo_width(), 2)
         h = max(self.canvas.winfo_height(), 2)
@@ -220,7 +267,55 @@ class ModelViewPanel(ttk.Frame):
         notes = list(getattr(self, "_last_notes", []) or [])
         wheels = self._wheel_centres(layout)
 
-        # Render solid at half resolution for speed; full-res for wireframe/fast
+        img = None
+        if self._gl is not None:
+            try:
+                img = self._render_gl(w, h, wheels)
+            except Exception as exc:
+                self._gl_error = f"OpenGL failed while drawing: {exc}"
+                self._release_gl()
+        if img is None:
+            img = self._render_software(w, h, fast, wheels)
+            if self._gl_error:
+                notes.append(f"Using the software renderer ({self._gl_error}).")
+        self._show_image(img, w, h)
+
+        path_txt = self._path.name if self._path else "(no model)"
+        nverts = 0 if self._verts is None else len(self._verts)
+        nfaces = 0 if self._faces is None else len(self._faces)
+        backend = f"OpenGL · {self._gl.name}" if self._gl is not None else "software"
+        status = (f"{path_txt}  ·  {nverts:,} verts · {nfaces:,} tris · {len(wheels)} wheels  ·  "
+                  f"{backend}  ·  drag to orbit, scroll to zoom")
+        if status != self._last_status:
+            self._last_status = status
+            self.status.configure(text=status)
+        lines = []
+        if wheels:
+            lines.append(
+                f"Wheelbase {layout.get('wheelbase_mm') or '?'} mm · "
+                f"front track {layout.get('front_track_mm') or '?'} mm · "
+                f"rear track {layout.get('rear_track_mm') or '?'} mm"
+            )
+        lines.extend(notes)
+        self.info.configure(text="\n".join(lines) if lines else "")
+
+    def _render_gl(self, w: int, h: int, wheels: list[dict]) -> Image.Image:
+        gl = self._gl
+        if self._mesh_dirty:
+            if self._verts is None:
+                gl.set_mesh(None)
+            else:
+                gl.set_mesh(self._verts, self._uvs, self._faces, self._face_tex, self._face_color, self._textures)
+            self._mesh_dirty = False
+        if self._verts is not None and len(self._verts):
+            mins, maxs = self._verts.min(axis=0), self._verts.max(axis=0)
+        else:
+            mins = maxs = None
+        eye, rot = self._camera_matrix()
+        lines = overlay_lines(wheels, mins, maxs, self._target)
+        return gl.render(w, h, eye, rot, 50.0, lines, near=0.05, far=max(200.0, self._dist * 10.0))
+
+    def _render_software(self, w: int, h: int, fast: bool, wheels: list[dict]) -> Image.Image:
         scale = 0.5 if not fast else 0.4
         rw, rh = max(2, int(w * scale)), max(2, int(h * scale))
 
@@ -233,7 +328,6 @@ class ModelViewPanel(ttk.Frame):
         f = 0.5 * rh / math.tan(fov * 0.5)
 
         def project(pts: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-            """pts (N,3) world → sx, sy, depth (positive in front of cam)."""
             local = (pts - eye) @ rot.T
             depth = local[:, 2]
             z = np.maximum(depth, 1e-4)
@@ -241,7 +335,6 @@ class ModelViewPanel(ttk.Frame):
             sy = (-local[:, 1] * f / z) + rh * 0.5
             return sx, sy, depth
 
-        # Ground grid
         if self._verts is not None and len(self._verts):
             span = float(np.linalg.norm(self._verts.max(axis=0) - self._verts.min(axis=0))) * 0.7
             cx, cz = float(self._target[0]), float(self._target[2])
@@ -256,43 +349,22 @@ class ModelViewPanel(ttk.Frame):
         for a, b in grid_pts:
             self._draw_line(pixels, zbuf, project, np.array(a), np.array(b), GRID_RGB, rw, rh)
 
-        # Body mesh — wireframe while orbiting for speed, solid when idle
         if self._verts is not None and self._faces is not None and len(self._faces):
             if fast or self._orbiting:
                 self._draw_wireframe(pixels, zbuf, project, self._verts, self._faces, rw, rh)
             else:
                 self._draw_mesh(pixels, zbuf, project, rw, rh)
 
-        # Wheels
         for wheel in wheels:
             self._draw_wheel_disc(pixels, zbuf, project, wheel, rw, rh)
 
         img = Image.fromarray(pixels, "RGB")
         if (rw, rh) != (w, h):
             img = img.resize((w, h), Image.BILINEAR)
-        self._photo = ImageTk.PhotoImage(img)
-        self.canvas.delete("all")
-        self.canvas.create_image(0, 0, anchor="nw", image=self._photo)
-
-        path_txt = self._path.name if self._path else "(no model)"
-        nverts = 0 if self._verts is None else len(self._verts)
-        nfaces = 0 if self._faces is None else len(self._faces)
-        self.status.configure(
-            text=f"{path_txt}  ·  {nverts:,} verts · {nfaces:,} tris · {len(wheels)} wheels  ·  drag to orbit, scroll to zoom"
-        )
-        lines = []
-        if wheels:
-            lines.append(
-                f"Wheelbase {layout.get('wheelbase_mm') or '?'} mm · "
-                f"front track {layout.get('front_track_mm') or '?'} mm · "
-                f"rear track {layout.get('rear_track_mm') or '?'} mm"
-            )
-        lines.extend(notes)
-        self.info.configure(text="\n".join(lines) if lines else "")
+        return img
 
 
     def _draw_wireframe(self, pixels, zbuf, project, verts, faces, w, h):
-        # Subsample faces for drag responsiveness
         step = max(1, len(faces) // 2500)
         faces = faces[::step]
         sx, sy, depth = project(verts)
@@ -332,7 +404,6 @@ class ModelViewPanel(ttk.Frame):
         normals = np.cross(v1 - v0, v2 - v0)
         nn = np.maximum(np.linalg.norm(normals, axis=1, keepdims=True), 1e-8)
         normals = normals / nn
-        # Front faces only — drawing backs shows mirrored textures
         centres = (v0 + v1 + v2) / 3.0
         eye, _rot = self._camera_matrix()
         view = eye - centres
@@ -370,7 +441,6 @@ class ModelViewPanel(ttk.Frame):
             self._fill_tri_tex(pixels, zbuf, pts, uv, tex, base, float(shade[i]), w, h)
 
     def _fill_tri_tex(self, pixels, zbuf, pts, uv, tex, base, shade, w, h):
-        """Barycentric fill with optional texture sampling."""
         xs, ys = pts[:, 0], pts[:, 1]
         minx = max(int(math.floor(xs.min())), 0)
         maxx = min(int(math.ceil(xs.max())), w - 1)
@@ -402,7 +472,6 @@ class ModelViewPanel(ttk.Frame):
                 if tex is not None and tw > 0 and th > 0:
                     uu = w0 * u0 + w1 * u1 + w2 * u2
                     vv = w0 * v0 + w1 * v1 + w2 * v2
-                    # glTF 2.0: UV (0,0) = top-left of the image
                     uu = uu % 1.0
                     vv = vv % 1.0
                     if uu < 0:
@@ -454,7 +523,6 @@ class ModelViewPanel(ttk.Frame):
         pts = np.asarray(pts, dtype=np.float32)
         for i in range(n):
             self._draw_line(pixels, zbuf, project, pts[i], pts[(i + 1) % n], WHEEL_RGB, w, h)
-        # hub
         hr = r * 0.3
         hub = []
         for i in range(n):

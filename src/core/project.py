@@ -1,5 +1,7 @@
 from __future__ import annotations
 import re
+import shutil 
+import sys 
 from pathlib import Path, PurePosixPath
 from typing import Callable
 from . import curve as curve_mod
@@ -8,6 +10,8 @@ from .discdata import DiscCars
 from .ini_model import IniDocument
 from .schema import FileSpec, Schema, slugify
 
+BASE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
+BLANK_IMAGES = BASE_DIR / "templates" / "blank_images"
 PLACEHOLDER = re.compile(r"\{(\w+)\.(\w+)\.(\w+)\}")
 MOD_ID_RE = re.compile(r"[a-z0-9_]+")
 EXTRA_WORK_DIRS = ("images", "models")  
@@ -118,7 +122,17 @@ class ModProject:
             raise ValueError(f"{root} already contains a mod. Use \"Edit existing mod\" to open it.")
         for sub in self.work_folders():
             (root / sub).mkdir(parents=True, exist_ok=True)
+        self._copy_blank_images(root/"images")
         return root
+
+    @staticmethod 
+    def _copy_blank_images(images_dir: Path) -> None: 
+        if not BLANK_IMAGES.is_dir():
+            return 
+        for src in BLANK_IMAGES.glob("*.png"):
+            dest = images_dir / src.name 
+            if not dest.exists():
+                shutil.copy2(src,dest)
 
     def stale_files(self, parent_dir: str | Path, written: list[Path]) -> list[Path]:
         root = Path(parent_dir) / self.mod_id
